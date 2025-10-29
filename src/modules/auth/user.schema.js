@@ -30,6 +30,9 @@ const UserSchema = new Schema ({
     emailVerificationCode: String,
     emailCodeExpiry: Date,
 
+    passwordResetCode: String,
+    passwordResetExpiry: Date,
+
     isDeleted: {type: Boolean, default: false},
     deleteRequestedAt: Date,
 }, {timestamps: true});

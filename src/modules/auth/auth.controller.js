@@ -323,6 +323,80 @@ export const updateUserAccount = asyncHandler(async (req, res) => {
   });
 });
 
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
+  }
+
+  const otpCode = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  user.passwordResetCode = otpCode;
+  user.passwordResetExpiry = otpExpiry;
+  await user.save();
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: 'Password Reset Code',
+      html: `
+        <p>You requested to reset your password.</p>
+        <p>Your password reset code is: <strong>${otpCode}</strong></p>
+        <p>This code will expire in 10 minutes.</p>
+      `
+    });
+    console.log('Password reset OTP sent.');
+  } catch (err) {
+    console.warn('Failed to send password reset email', err.message);
+  }
+
+  return res.status(200).json({
+    message: 'Password reset code sent to email.',
+    data: {
+      email: user.email,
+      expiresAt: otpExpiry
+    }
+  });
+});
+
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json({ message: 'Email, OTP, and new password are required.' });
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({ message: 'User not found.' });
+  }
+
+  const now = new Date();
+  if (
+    user.passwordResetCode !== otp ||
+    !user.passwordResetExpiry ||
+    now > user.passwordResetExpiry
+  ) {
+    return res.status(400).json({ message: 'Invalid or expired OTP.' });
+  }
+
+  user.password = newPassword;
+  user.passwordResetCode = null;
+  user.passwordResetExpiry = null;
+
+  await user.save();
+
+  return res.status(200).json({ message: 'Password reset successfully.' });
+});
+
 
 /*function generateOTP() {
     return Math.floor(10000 + Math.random() * 90000).toString(); // 5-digit OTP

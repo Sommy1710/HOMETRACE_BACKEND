@@ -319,3 +319,77 @@ export const updatePropertyProviderAccount = asyncHandler(async (req, res) => {
     }
   });
 });
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
+  }
+
+  const propertyProvider = await PropertyProvider.findOne({ email });
+  if (!propertyProvider) {
+    return res.status(404).json({ message: 'propertyProvider not found.' });
+  }
+
+  const otpCode = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  propertyProvider.passwordResetCode = otpCode;
+  propertyProvider.passwordResetExpiry = otpExpiry;
+  await propertyProvider.save();
+
+  try {
+    await sendEmail({
+      to: propertyProvider.email,
+      subject: 'Password Reset Code',
+      html: `
+        <p>You requested to reset your password.</p>
+        <p>Your password reset code is: <strong>${otpCode}</strong></p>
+        <p>This code will expire in 10 minutes.</p>
+      `
+    });
+    console.log('Password reset OTP sent.');
+  } catch (err) {
+    console.warn('Failed to send password reset email', err.message);
+  }
+
+  return res.status(200).json({
+    message: 'Password reset code sent to email.',
+    data: {
+      email: propertyProvider.email,
+      expiresAt: otpExpiry
+    }
+  });
+});
+
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json({ message: 'Email, OTP, and new password are required.' });
+  }
+
+  const propertyProvider = await PropertyProvider.findOne({ email });
+  if (!propertyProvider) {
+    return res.status(404).json({ message: 'propertyProvider not found.' });
+  }
+
+  const now = new Date();
+  if (
+    propertyProvider.passwordResetCode !== otp ||
+    !propertyProvider.passwordResetExpiry ||
+    now > propertyProvider.passwordResetExpiry
+  ) {
+    return res.status(400).json({ message: 'Invalid or expired OTP.' });
+  }
+
+  propertyProvider.password = newPassword;
+  propertyProvider.passwordResetCode = null;
+  propertyProvider.passwordResetExpiry = null;
+
+  await propertyProvider.save();
+
+  return res.status(200).json({ message: 'Password reset successfully.' });
+});

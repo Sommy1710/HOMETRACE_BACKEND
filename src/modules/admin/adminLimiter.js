@@ -1,6 +1,6 @@
 import  rateLimit from 'express-rate-limit';
 
-export const propertyProviderLimiter = rateLimit({
+export const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // limit each IP to 5 requests per windowMs
   standardHeaders: true, // Return rate limit info in the RateLimit-* headers

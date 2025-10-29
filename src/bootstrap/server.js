@@ -11,6 +11,7 @@ import express from 'express';
 import {createServer} from 'http';
 import {authRouter} from '../modules/auth/api.js';
 import { propertyProviderRouter } from '../modules/propertyProvider/propertyProvider.routes.js';
+import { adminRouter } from '../modules/admin/admin.routes.js';
 import cookieParser  from 'cookie-parser';
 
 
@@ -42,6 +43,7 @@ app.get('/health', (req, res) => {
 //app.use('/api/email', emailRoutes);
 app.use('/api/auth', authRouter);
 app.use('/api/propertyProvider', propertyProviderRouter);
+app.use('/api/admin', adminRouter);
 
 app.use((req, res, next) => {
     next(new NotFoundError(`the requested route ${req.originalUrl} does not exist on this server`));

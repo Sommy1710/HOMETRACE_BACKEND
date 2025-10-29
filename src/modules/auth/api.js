@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import {createUserAccount, verifyEmailOTP, authenticateUser, deleteUserAccount, getAuthenticatedUser, deleteprofilePhoto, logoutUser, updateUserAccount} from './auth.controller.js';
+import {createUserAccount, verifyEmailOTP, authenticateUser, deleteUserAccount, getAuthenticatedUser, deleteprofilePhoto, logoutUser, updateUserAccount, forgotPassword, resetPassword} from './auth.controller.js';
 import upload from '../../lib/upload.js';
 import authMiddleware from '../../app/middleware/auth.middleware.js';
 import { userlimiter } from './userlimiter.js';
@@ -12,6 +12,8 @@ router.get('/user', authMiddleware, getAuthenticatedUser);
 router.delete('/delete/:userId', authMiddleware, deleteUserAccount);
 router.delete('/delete-profile-photo', authMiddleware, deleteprofilePhoto);
 router.put('/users/:userId', authMiddleware, upload.single('profilePhoto'), updateUserAccount);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.post("/logout", logoutUser);
 
 export const authRouter = router;

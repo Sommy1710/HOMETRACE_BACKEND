@@ -1,5 +1,5 @@
 import {Router} from 'express';
-import {createPropertyProviderAccount, verifyEmailOTP, authenticatePropertyProvider, deletePropertyProviderAccount, getAuthenticatedPropertyProvider, logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount} from './propertyProvider.controller.js';
+import {createPropertyProviderAccount, verifyEmailOTP, authenticatePropertyProvider, deletePropertyProviderAccount, getAuthenticatedPropertyProvider, logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword} from './propertyProvider.controller.js';
 import upload from '../../lib/upload.js';
 import propertyProviderMiddleware from '../../app/middleware/propertyProvider.middleware.js';
 import { propertyProviderLimiter } from './propertyProviderLimiter.js';
@@ -12,6 +12,8 @@ router.get('/user', propertyProviderMiddleware, getAuthenticatedPropertyProvider
 router.delete('/delete/:propertyProviderId', propertyProviderMiddleware, deletePropertyProviderAccount);
 router.delete('/delete-profile-photo', propertyProviderMiddleware, deletePropertyProviderProfilePhoto);
 router.put('/propertyProviders/:propertyProviderId', propertyProviderMiddleware, upload.single('profilePhoto'), updatePropertyProviderAccount);
+router.post('/reset-password', resetPassword);
+router.post('/forgot-password', forgotPassword);
 router.post("/logout", logoutPropertyProvider);
 
 export const propertyProviderRouter = router;
