@@ -12,3 +12,9 @@ export const UpdateUserRequest = Joi.object({
   username: Joi.string().min(3).max(30).optional(),
   profilePhoto: Joi.string().uri().optional(),
 }).or('username', 'profilePhoto'); // Ensures at least one field is provided
+
+
+export const ChangeUserPasswordRequest = Joi.object({
+  oldPassword: Joi.string().min(6).max(32).required(),
+  newPassword: Joi.string().min(6).max(32).required(),
+});

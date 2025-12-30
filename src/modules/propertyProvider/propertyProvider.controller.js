@@ -191,7 +191,7 @@ export const deletePropertyProviderAccount = asyncHandler(async (req, res) => {
   const isAdmin = ['admin'].includes(requester.role);
 
   //  Allow if requester is deleting their own account
-  const isSelf = requester.id === propertyProviderId;
+  const isSelf = requester.id.toString() === propertyProviderId;
 
   if (!isAdmin && !isSelf) {
     throw new UnauthorizedError("You are not authorized to delete this account");
@@ -261,10 +261,10 @@ export const updatePropertyProviderAccount = asyncHandler(async (req, res) => {
   const { propertyProviderId } = req.params;
   const requester = req.propertyProvider;
 
-  const isAdmin = ['admin'].includes(requester.role);
-  const isSelf = requester.id === propertyProviderId;
+  //const isAdmin = ['admin'].includes(requester.role);
+  const isSelf = requester.id.toString() === propertyProviderId;
 
-  if (!isAdmin && !isSelf) {
+  if (!isSelf) {
     throw new UnauthorizedError("You are not authorized to update this account");
   }
 

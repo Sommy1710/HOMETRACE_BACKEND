@@ -50,7 +50,7 @@ export class TooManyRequestError extends Error
     }
 }
 
-export class ValidationError extends Error
+/*export class ValidationError extends Error
 {
     constructor(message, error)
     {
@@ -58,7 +58,16 @@ export class ValidationError extends Error
         this.error = error;
         this.statusCode = 422;
     }
+}*/
+export class ValidationError extends Error {
+  constructor(message, errors) {
+    super(message);
+    this.name = 'ValidationError';
+    this.errors = errors; // <- IMPORTANT
+    this.statusCode = 400;
+  }
 }
+
 
 export class ServerError extends Error
 {

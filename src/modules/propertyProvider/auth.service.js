@@ -20,6 +20,7 @@ export const authenticatePropertyProvider = async (payload) =>
     return generateAuthenticationToken({
         id: propertyProvider.id,
         email: propertyProvider.email,
+        username: propertyProvider.username,
         role: propertyProvider.role,
 
     });

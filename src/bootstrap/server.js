@@ -13,6 +13,10 @@ import {authRouter} from '../modules/auth/api.js';
 import { propertyProviderRouter } from '../modules/propertyProvider/propertyProvider.routes.js';
 import { adminRouter } from '../modules/admin/admin.routes.js';
 import cookieParser  from 'cookie-parser';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from '../docs/swagger.js';
+import * as Sentry from '@sentry/node';
+import { listingRouter } from './../modules/listing/listing.routes.js';
 
 
 
@@ -44,6 +48,23 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/propertyProvider', propertyProviderRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/listings', listingRouter);
+
+// Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+//app.use(Sentry.middleware.error);
+app.use(
+  express.json({
+    strict: true,
+    verify: (req, res, buf) => {
+      if (!buf.length) {
+        req.body = {};
+      }
+    },
+  })
+);
+
 
 app.use((req, res, next) => {
     next(new NotFoundError(`the requested route ${req.originalUrl} does not exist on this server`));

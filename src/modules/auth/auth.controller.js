@@ -1,8 +1,9 @@
 //import sanitize from 'mongo-sanitize';
 import {asyncHandler} from '../../lib/util.js';
+import argon from 'argon2';
 import * as authService from './auth.service.js';
 import {Validator} from '../../lib/validator.js';
-import {CreateUserRequest, UpdateUserRequest} from './create-user.request.js';
+import {CreateUserRequest, UpdateUserRequest, ChangeUserPasswordRequest} from './create-user.request.js';
 import { AuthUserRequest, } from './auth-user.request.js';
 import { ValidationError } from '../../lib/error-definitions.js';
 //import config from '../../config/app.config.js';
@@ -11,7 +12,9 @@ import {v2 as cloudinary} from 'cloudinary';
 import {sendEmail} from '../../lib/emailService.js';
 import { deleteUserById } from './user.service.js';
 import config from '../../config/app.config.js';
-import { UnauthorizedError } from '../../lib/error-definitions.js';
+import { UnauthorizedError, NotFoundError } from '../../lib/error-definitions.js';
+import {Favourite} from './user.schema.js';
+import * as listingService from '../listing/listing.service.js'
 import crypto from 'crypto';
 
 
@@ -397,81 +400,42 @@ export const resetPassword = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Password reset successfully.' });
 });
 
+/*export const toogleFavouriteListing = asyncHandler(async (req, res) => {
+  const {listingId} = req.params;
 
-/*function generateOTP() {
-    return Math.floor(10000 + Math.random() * 90000).toString(); // 5-digit OTP
-};
+  //check user authentication
+  if (!req.user?.id) {
+    throw new UnauthorizedError("User not authenticated");
+  }
+  const userId = req.user.id;
 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+  //ensure that the listing exists
+  const listing = await listingService.getListing(listingId);
+  if (!listing) {
+    throw new NotFoundError("listing not found");
+  }
 
-export const createUserAccount = asyncHandler(async (req, res) => {
+  //check if already favorited
+  const existingFavourite = await Favourite.findOne({user: userId, listing: listingId});
 
-    const validator = new Validator();
-    const {value, errors} = validator.validate(CreateUserRequest, req.body);
+  if (existingFavourite) {
+    // 🔴 Remove from favorites
+    await existingFavourite.deleteOne();
+    return res.status(200).json({
+      success: true,
+      message: "Listing removed from favourites",
+    });
+  } else {
+    // ❤️ Add to favorites
+    const favourite = await Favourite.create({
+      user: userId,
+      listing: listingId
+    });
 
-    if (errors) {
-        throw new ValidationError(
-            'The request failed with the following errors',
-            errors
-        );
-    }
-
-      let profilePhotoUrl = '';
-    
-      // Handle image upload with a Promise
-      if (req.file) {
-        profilePhotoUrl = await new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { resource_type: 'image' },
-            (error, result) => {
-              if (error) return reject(new Error('Image upload failed'));
-              resolve(result.secure_url);
-            }
-          );
-          uploadStream.end(req.file.buffer);
-        });
-      }
-
-      const emailToken = crypto.randomBytes(32).toString('hex');
-      const emailTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-      const userData = {
-        ...value,
-        profilePhoto: profilePhotoUrl,
-        emailVerificationToken: emailToken,
-        emailTokenExpiry: emailTokenExpiry,
-      };
-
-      await authService.registerUser(userData);
-
-      const verificationUrl = `${process.env.APP_BASE_URL}/auth/verify-email?token=${emailToken}`;
-      console.log(`verificationUrl ${verificationUrl}`);
-
-      try {
-        await sendEmail({
-            to: value.email,
-            subject: 'verify your email address',
-            html: `
-                <p> thank you for registering, please verify your email by clicking the link below</p>
-                <a> href="${verificationUrl}verify email</a>
-                <p> this link expires in 24 hours</p>`
-        });
-        console.log('verification email sent successfully.');
-      } catch (err) {
-        console.warn('failed to send verification email', err.message);
-      }
-
-      return res.status(201).json({
-        message: 'user registered successfully. Verification email sent.',
-        data: {
-            userData
-        }
-      });
-});
-*/
-
-
+    return res.status(200).json({
+      success: true,
+      message: "Listing added to favourites",
+      data: favourite
+    });
+  }
+})*/

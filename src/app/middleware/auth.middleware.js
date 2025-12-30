@@ -11,3 +11,14 @@ export default function authMiddleware(req, res, next) {
         throw new UnauthenticatedError('invalid or missing token');
     }
 }
+
+export const permit = (...allowedRoles) => {
+  return (req, res, next) => {
+    const role = req.decoded?.role || req.user?.role;
+    if (!role || !allowedRoles.includes(role)) {
+      return res.status(403).json({ message: 'You are not authorized to perform this operation' });
+    }
+    next();
+  };
+};
+
