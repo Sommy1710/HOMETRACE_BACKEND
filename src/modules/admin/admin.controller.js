@@ -5,6 +5,7 @@ import { CreateAdminRequest, UpdateAdminRequest } from './create-admin.request.j
 import { AuthAdminRequest } from './auth-admin.request.js';
 import { ValidationError } from '../../lib/error-definitions.js';
 import {Admin} from './admin.schema.js';
+import {sendEmail} from '../../lib/emailService.js';
 //import { deleteAdminById } from './admin.service.js';
 import { deleteUserById } from '../auth/user.service.js';
 import { deletePropertyProviderById } from '../propertyProvider/propertyProvider.service.js';
@@ -16,6 +17,10 @@ import { PropertyProvider } from '../propertyProvider/propertyProvider.schema.js
 import * as listingService from '../listing/listing.service.js';
 import { v2 as cloudinary } from "cloudinary";
 
+function generateOTP() {
+    return Math.floor(10000 + Math.random() * 90000).toString(); // 5-digit OTP
+};
+
 export const createAdminAccount = asyncHandler(async (req, res) => {
     const validator = new Validator();
 
@@ -23,22 +28,117 @@ export const createAdminAccount = asyncHandler(async (req, res) => {
     if (errors)
         throw new ValidationError(
     'the request failed with the following errors', errors)
-    await authService.registerAdmin(value);
+
+    const otpCode = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    const adminData = {
+        ...value,
+        emailVerificationCode: otpCode,
+        emailCodeExpiry: otpExpiry,
+        isEmailVerified: false,
+    };
+
+    await authService.registerAdmin(adminData);
+
+    try {
+        await sendEmail({
+            to: value.email,
+            subject: 'Your verification code',
+            html: `
+                <p>Thank you for registering!</p>
+                <p>Your verification code is: <strong>${otpCode}</strong></p>
+                <p>This code expires in 10 minutes.</p>
+            `
+        });
+        console.log('OTP email sent successfully.');
+    } catch (err) {
+        console.warn('Failed to send OTP email', err.message);
+    }
 
     return res.status(201).json({
-        success: true,
-        message: 'admin registered successfully',
+        message: 'Admin registered successfully. OTP sent to email.',
+        data: {
+            email: value.email,
+            expiresAt: otpExpiry
+        }
     });
 });
 
-export const authenticateAdmin = asyncHandler(async(req, res) =>
-{
-    const validator = new Validator();
-    const {value, errors} = validator.validate(AuthAdminRequest, req.body);
-    if (errors) throw new ValidationError('the request failed with the following errors', errors);
-    const token = await authService.authenticateAdmin(value, req);
-    res.cookie("authentication", token);
-    return res.status(200).json({success: true, message: "admin successfully logged in"});
+export const verifyAdminEmailOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ message: 'Email and OTP are required.' });
+  }
+
+  const admin = await Admin.findOne({ email });
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found.' });
+  }
+
+  if (admin.isEmailVerified) {
+    return res.status(400).json({ message: 'Email is already verified.' });
+  }
+
+  const now = new Date();
+  if (admin.emailVerificationCode !== otp || now > admin.emailCodeExpiry) {
+    return res.status(400).json({ message: 'Invalid or expired OTP.' });
+  }
+
+  admin.isEmailVerified = true;
+  admin.emailVerificationCode = null;
+  admin.emailCodeExpiry = null;
+
+  await admin.save();
+
+  return res.status(200).json({ message: 'Email verified successfully.' });
+});
+
+
+export const authenticateAdmin = asyncHandler(async(req, res) => {
+  const validator = new Validator();
+  const {value, errors} = validator.validate(AuthAdminRequest, req.body);
+  if (errors) throw new ValidationError('the request failed with the following errors', errors);
+
+  const admin = await Admin.findOne({email: value.email});
+  if (!admin) {
+    return res.status(404).json({message: 'admin not found'});
+  }
+  if (!admin.isEmailVerified) {
+    //generate new OTP
+    const otpCode = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); //10 minutes
+
+    admin.emailVerificationCode = otpCode;
+    admin.emailCodeExpiry = otpExpiry;
+    await admin.save();
+
+    try {
+      await sendEmail({
+        to: admin.email,
+        subject: 'Verify your email',
+        html: `
+            <p>Your email is not verified.</p>
+            <p>Your new verification code is: <strong>${otpCode}</strong></p>
+            <p>This code expires in 10 minutes. </p>`
+      });
+      console.log('verification OTP resent');
+
+    } catch (err) {
+      console.warn('Failed to send verification email', err.message);
+    }
+    return res.status(403).json({
+      message: 'Email not verified. A new OTP has been sent to your email.',
+      data: {
+        email: admin.email,
+        expiresAt: otpExpiry
+      }
+    });
+  }
+  const token = await authService.authenticateAdmin(value, req);
+  res.cookie("authentication", token);
+  return res.status(200).json({success: true, message: "admin successfully logged in"});
 
 });
 

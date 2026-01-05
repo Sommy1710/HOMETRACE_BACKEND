@@ -53,27 +53,78 @@
  * @swagger
  * /api/admin/register:
  *   post:
- *     summary: Register a new admin
+ *     summary: Register a new admin account
  *     tags: [Admin]
+ *     description: Creates a new admin account and sends an OTP to the admin's email for verification.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [username, email, password]
+ *             required:
+ *               - email
+ *               - password
  *             properties:
- *               username:
- *                 type: string
  *               email:
  *                 type: string
+ *                 format: email
  *               password:
  *                 type: string
+ *                 minLength: 8
  *     responses:
  *       201:
- *         description: Admin registered successfully
+ *         description: Admin registered successfully and OTP sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     email:
+ *                       type: string
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
  *       400:
  *         description: Validation error
+ */
+
+
+/**
+ * @swagger
+ * /api/admin/verify:
+ *   post:
+ *     summary: Verify admin email using OTP
+ *     tags: [Admin]
+ *     description: Verifies an admin email address using a one-time password (OTP).
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               otp:
+ *                 type: string
+ *                 example: "12345"
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ *       404:
+ *         description: Admin not found
  */
 
 /**
@@ -82,13 +133,16 @@
  *   post:
  *     summary: Authenticate admin
  *     tags: [Admin]
+ *     description: Logs in an admin. If email is not verified, a new OTP is sent.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, password]
+ *             required:
+ *               - email
+ *               - password
  *             properties:
  *               email:
  *                 type: string
@@ -96,10 +150,13 @@
  *                 type: string
  *     responses:
  *       200:
- *         description: Admin logged in successfully (auth cookie set)
- *       401:
- *         description: Invalid credentials
+ *         description: Admin logged in successfully
+ *       403:
+ *         description: Email not verified, OTP resent
+ *       404:
+ *         description: Admin not found
  */
+
 
 /**
  * @swagger

@@ -7,12 +7,13 @@ import {createAdminAccount,
          listAllUsersByAdmin,
         listAllPropertyProvidersByAdmin,
     updateAdminProfile,
-    deleteSingleListingByAdmin} from './admin.controller.js';
+    deleteSingleListingByAdmin, verifyAdminEmailOTP} from './admin.controller.js';
 import adminMiddleware from '../../app/middleware/admin.middleware.js';
 import { adminLimiter } from './adminLimiter.js';
 const router = Router();
 
 router.post('/register', createAdminAccount);
+router.post('/verify', verifyAdminEmailOTP);
 router.post('/login', adminLimiter, authenticateAdmin);
 router.get('/user', adminMiddleware, getAuthenticatedAdmin);
 router.delete('/user/:userId', adminMiddleware, deleteUserAccountByAdmin);
