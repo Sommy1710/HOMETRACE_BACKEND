@@ -111,6 +111,11 @@ const ListingSchema = new Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
     userType: { type: String, enum: ['user', 'propertyProvider'], required: true }
   }],
+  views: {
+    type: Number,
+    default: 0
+  },
+
   createdAt: {type: Date, default: Date.now},
 }, { timestamps: true });
 

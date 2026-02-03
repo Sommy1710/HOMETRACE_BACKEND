@@ -1,11 +1,9 @@
-//import sanitize from 'mongo-sanitize';
 import {asyncHandler} from '../../lib/util.js';
 import * as authService from './auth.service.js';
 import {Validator} from '../../lib/validator.js';
 import {CreatePropertyProviderRequest, UpdatePropertyProviderRequest} from './create-propertyProvider.request.js';
 import { AuthPropertyProviderRequest } from './auth-propertyProvider.request.js';
 import { ValidationError } from '../../lib/error-definitions.js';
-//import config from '../../config/app.config.js';
 import {PropertyProvider} from './propertyProvider.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import {sendEmail} from '../../lib/emailService.js';
@@ -13,7 +11,8 @@ import { deletePropertyProviderById } from './propertyProvider.service.js';
 import config from '../../config/app.config.js';
 import { UnauthorizedError } from '../../lib/error-definitions.js';
 import crypto from 'crypto';
-
+import { createNotification } from "../notifications/notification.service.js";
+import {User} from "../auth/user.schema.js";
 
 
 
@@ -392,4 +391,99 @@ export const resetPassword = asyncHandler(async (req, res) => {
   await propertyProvider.save();
 
   return res.status(200).json({ message: 'Password reset successfully.' });
+});
+
+
+export const toggleFollowPropertyProvider = asyncHandler(async (req, res) => {
+  const { propertyProviderId } = req.params;
+
+  //IDENTIFY FOLLOWER
+  let followerId = null;
+  let followerModel = null;
+  let followerUsername = "Someone";
+
+  if (req.user?._id) {
+    // User
+    followerId = req.user._id;
+    followerModel = "User";
+    followerUsername = req.user.username;
+
+    if (!followerUsername) {
+      const user = await User.findById(followerId).select("username");
+      followerUsername = user?.username || "Someone";
+    }
+  } else if (req.propertyProvider?._id) {
+    // PropertyProvider
+    followerId = req.propertyProvider._id;
+    followerModel = "PropertyProvider";
+    followerUsername = req.propertyProvider.username;
+
+    if (!followerUsername) {
+      const provider = await PropertyProvider.findById(followerId).select("username");
+      followerUsername = provider?.username || "Someone";
+    }
+  } else {
+    throw new UnauthorizedError("Not authenticated");
+  }
+
+  //PREVENT SELF-FOLLOW
+  if (followerModel === "PropertyProvider" && followerId.toString() === propertyProviderId) {
+    throw new ValidationError("You cannot follow yourself");
+  }
+
+  //FETCH TARGET PROVIDER
+  const provider = await PropertyProvider.findById(propertyProviderId);
+  if (!provider) {
+    throw new ValidationError("Property provider not found");
+  }
+
+  //CHECK FOLLOW STATE
+  const alreadyFollowing = provider.followers.find(
+    f =>
+      f.followerId.toString() === followerId.toString() &&
+      f.followerModel === followerModel
+  );
+
+  if (alreadyFollowing) {
+    //UNFOLLOW
+    provider.followers = provider.followers.filter(
+      f =>
+        !(
+          f.followerId.toString() === followerId.toString() &&
+          f.followerModel === followerModel
+        )
+    );
+  } else {
+    //FOLLOW
+    provider.followers.push({
+      followerId,
+      followerModel
+    });
+
+    //CREATE NOTIFICATION
+    await createNotification({
+      recipient: provider._id,
+      recipientModel: "PropertyProvider",
+
+      sender: followerId,
+      senderModel: followerModel,
+
+      type: "NEW_FOLLOWER",
+      entityId: provider._id,
+      entityModel: "PropertyProvider",
+
+      message: `${followerUsername} started following you`
+    });
+  }
+
+  await provider.save();
+
+  res.status(200).json({
+    success: true,
+    message: alreadyFollowing ? "Unfollowed successfully" : "Followed successfully",
+    data: {
+      following: !alreadyFollowing,
+      followersCount: provider.followers.length
+    }
+  });
 });

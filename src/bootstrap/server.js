@@ -12,16 +12,28 @@ import {createServer} from 'http';
 import {authRouter} from '../modules/auth/api.js';
 import { propertyProviderRouter } from '../modules/propertyProvider/propertyProvider.routes.js';
 import { adminRouter } from '../modules/admin/admin.routes.js';
+import { messageRouter } from '../modules/messages/message.routes.js';
+import {notificationsRouter} from '../modules/notifications/notifications.routes.js';
 import cookieParser  from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '../docs/swagger.js';
 import * as Sentry from '@sentry/node';
 import { listingRouter } from './../modules/listing/listing.routes.js';
+import {Server} from 'socket.io';
+
 
 
 
 const app = express();
 const server = createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
 app.use(cors());
 app.use(compression());
 app.use(helmet());
@@ -49,6 +61,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/propertyProvider', propertyProviderRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/listings', listingRouter);
+app.use('/api/messages', messageRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -68,6 +82,27 @@ app.use(
 
 app.use((req, res, next) => {
     next(new NotFoundError(`the requested route ${req.originalUrl} does not exist on this server`));
+});
+
+// socket.IO logic
+io.on("connection", (socket) => {
+    console.log("User connected:", socket.id);
+
+    socket.on("sendMessage", ({senderId, receiverId, message}) => {
+        io.to(receiverId).emit("receiveMessage", {senderId, message});
+    });
+
+    socket.on("join", (userId) => {
+        socket.join(userId);
+    });
+
+    socket.on("disconnect", () => {
+        console.log("User disconnected:", socket.id)
+    });
+});
+
+app.use((req, res, next) => {
+    next(new NotFoundError(`the requested route ${req.originalUrl} does  not exist on this server`));
 });
 app.use(errorMiddleware);
 

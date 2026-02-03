@@ -253,4 +253,3 @@
  *       200:
  *         description: Public listings retrieved
  */
-

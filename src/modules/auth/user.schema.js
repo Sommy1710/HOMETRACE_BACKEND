@@ -6,6 +6,7 @@ const UserSchema = new Schema ({
     username: {
         type: String,
         required: true,
+        unique: true,
     },
     email: {
         type: String,
@@ -48,11 +49,3 @@ UserSchema.pre('save', async function(next)
  
 export const User = model('User', UserSchema);
 
-
-const FavouriteSchema = new Schema({
-    user: {type: Schema.Types.ObjectId, ref: 'User', required: true},
-    listing: {type: Schema.Types.ObjectId, ref: 'Listing', required: true},
-    createdAt: {type: Date, default: Date.now}
-});
-
-export const Favourite = model('Favourite', FavouriteSchema);

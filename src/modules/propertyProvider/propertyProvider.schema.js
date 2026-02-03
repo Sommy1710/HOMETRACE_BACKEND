@@ -38,7 +38,25 @@ const PropertyProviderSchema = new Schema({
     profilePhoto: {type: String, default: ''},
     isEmailVerified: {type: Boolean, default: false},
     isVerified: {type: Boolean, default: false},
-    followers: [{type: mongoose.Schema.Types.ObjectId, ref: "User"}],
+    followers: [
+  {
+    followerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: "followers.followerModel"
+    },
+    followerModel: {
+      type: String,
+      enum: ["User", "PropertyProvider"],
+      required: true
+    },
+    followedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }
+],
+
     role: {
         type: String,
         default: 'propertyProvider',

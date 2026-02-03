@@ -6,6 +6,10 @@ import {ValidationError} from '../../lib/error-definitions.js';
 import { Listing } from './listing.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import { NotFoundError, UnauthenticatedError } from '../../lib/error-definitions.js';
+import { createNotification } from "../notifications/notification.service.js";
+import {User} from "../auth/user.schema.js"
+import { PropertyProvider } from '../propertyProvider/propertyProvider.schema.js';
+
 
 
 
@@ -273,7 +277,7 @@ export const updateListing = asyncHandler(async (req, res) => {
   });
 });
 
-export const toggleLikeListing = asyncHandler(async (req, res) => {
+/*export const toggleLikeListing = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   // 1️⃣ Identify who is liking
@@ -330,7 +334,201 @@ export const toggleLikeListing = asyncHandler(async (req, res) => {
       liked: !alreadyLiked
     }
   });
+});*/
+
+
+/*export const toggleLikeListing = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  
+     //IDENTIFY LIKER
+     
+  let likerId = null;
+  let likerType = null;
+
+  if (req.user?.id) {
+    likerId = req.user.id;
+    likerType = "user"; // lowercase for Listing schema
+  } else if (req.propertyProvider?.id) {
+    likerId = req.propertyProvider.id;
+    likerType = "propertyProvider"; // lowercase for Listing schema
+  } else {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  
+     // FETCH LISTING
+   
+  const listing = await listingService.getListing(id);
+  if (!listing) {
+    throw new NotFoundError("Listing not found");
+  }
+
+  //CHECK IF ALREADY LIKED
+  const alreadyLiked = listing.likes.find(
+    like =>
+      like.userId.toString() === likerId.toString() &&
+      like.userType === likerType
+  );
+
+  if (alreadyLiked) {
+    // 🔴 UNLIKE
+    listing.likes = listing.likes.filter(
+      like =>
+        !(
+          like.userId.toString() === likerId.toString() &&
+          like.userType === likerType
+        )
+    );
+  } else {
+    // ❤️ LIKE
+    listing.likes.push({
+      userId: likerId,
+      userType: likerType // lowercase for Listing schema
+    });
+
+    
+
+    // ❌ Prevent self-like notification
+    const isOwner =
+      likerType === "propertyProvider" &&
+      listing.listedBy.toString() === likerId.toString();
+
+    if (!isOwner) {
+      await createNotification({
+        recipient: listing.listedBy,
+        recipientModel: "PropertyProvider", // capitalized for Notification schema
+
+        sender: likerId,
+        senderModel: likerType === "user" ? "User" : "PropertyProvider", // mapped
+
+        type: "LISTING_LIKED",
+
+        entityId: listing._id,
+        entityModel: "Listing",
+
+        message: "someone liked your listing"
+      });
+    }
+  }
+
+  await listing.save();
+
+  return res.status(200).json({
+    success: true,
+    message: alreadyLiked ? "Listing unliked" : "Listing liked",
+    data: {
+      likesCount: listing.likes.length,
+      liked: !alreadyLiked
+    }
+  });
+});*/
+
+
+
+export const toggleLikeListing = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  
+    //IDENTIFY LIKER
+  let likerId = null;
+  let likerType = null;
+  let likerUsername = "Someone";
+
+  if (req.user?._id) {
+    //User
+    likerId = req.user._id;
+    likerType = "user";
+    likerUsername = req.user.username;
+
+    // If username not attached to req.user, fetch from DB
+    if (!likerUsername) {
+      const user = await User.findById(likerId).select("username");
+      likerUsername = user?.username || "Someone";
+    }
+
+  } else if (req.propertyProvider?._id) {
+    //PropertyProvider
+    likerId = req.propertyProvider._id;
+    likerType = "propertyProvider";
+    likerUsername = req.propertyProvider.username;
+
+    // If username not attached to req.propertyProvider, fetch from DB
+    if (!likerUsername) {
+      const provider = await PropertyProvider.findById(likerId).select("username");
+      likerUsername = provider?.username || "Someone";
+    }
+
+  } else {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  //FETCH LISTING
+  const listing = await listingService.getListing(id);
+  if (!listing) {
+    throw new NotFoundError("Listing not found");
+  }
+
+  //CHECK IF ALREADY LIKED
+  const alreadyLiked = listing.likes.find(
+    like =>
+      like.userId.toString() === likerId.toString() &&
+      like.userType === likerType
+  );
+
+  if (alreadyLiked) {
+    //UNLIKE
+    listing.likes = listing.likes.filter(
+      like =>
+        !(
+          like.userId.toString() === likerId.toString() &&
+          like.userType === likerType
+        )
+    );
+  } else {
+    //LIKE
+    listing.likes.push({
+      userId: likerId,
+      userType: likerType
+    });
+
+    //CREATE NOTIFICATION
+    const isOwner =
+      likerType === "propertyProvider" &&
+      listing.listedBy.toString() === likerId.toString();
+
+    if (!isOwner) {
+      await createNotification({
+        recipient: listing.listedBy,
+        recipientModel: "PropertyProvider",
+
+        sender: likerId,
+        senderModel: likerType === "user" ? "User" : "PropertyProvider",
+
+        type: "LISTING_LIKED",
+        entityId: listing._id,
+        entityModel: "Listing",
+
+        message: `${likerUsername} liked your listing`
+      });
+    }
+  }
+
+  await listing.save();
+
+  return res.status(200).json({
+    success: true,
+    message: alreadyLiked ? "Listing unliked" : "Listing liked",
+    data: {
+      likesCount: listing.likes.length,
+      liked: !alreadyLiked
+    }
+  });
 });
+
+
+
+
 
 export const fetchPublicListings = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
@@ -365,3 +563,159 @@ export const fetchPublicListings = asyncHandler(async (req, res) => {
     }
   });
 });
+
+export const updateListingStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body; // expected: "available" or "unavailable"
+
+  if (!req.propertyProvider || !req.propertyProvider.id) {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  const validStatuses = ["available", "unavailable"];
+  if (!status || !validStatuses.includes(status)) {
+    throw new ValidationError(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
+  }
+
+  const listing = await listingService.getListing(id);
+  if (!listing) {
+    throw new NotFoundError("Listing not found");
+  }
+
+  //Ownership check
+  if (!listing.listedBy.equals(req.propertyProvider.id)) {
+    throw new UnauthenticatedError("You are not authorized to update this listing");
+  }
+
+  listing.status = status;
+  await listing.save();
+
+  return res.status(200).json({
+    success: true,
+    message: `Listing status updated to "${status}" successfully`,
+    data: {
+      listingId: listing._id,
+      status: listing.status
+    }
+  });
+});
+
+export const incrementListingViews = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const listing = await Listing.findByIdAndUpdate(
+    id,
+    { $inc: { views: 1 } },
+    { new: true }
+  );
+
+  if (!listing) {
+    throw new NotFoundError("Listing not found");
+  }
+
+  res.json({
+    success: true,
+    data: {
+      views: listing.views
+    }
+  });
+});
+
+//for homepage sections: "trending", "most viewed", "hot right now"
+export const fetchPopularListings = asyncHandler(async (req, res) => {
+  const limit = Number(req.query.limit) || 10;
+
+  const listings = await Listing.find({ status: "available" })
+    .sort({ views: -1, "likes.length": -1 })
+    .limit(limit);
+
+  res.json({
+    success: true,
+    data: listings
+  });
+});
+
+//users can see all listings by a specific property provider (for public profile of the property provider)
+export const fetchListingsBypropertyProvider = asyncHandler(async (req, res) => {
+  const { propertyProviderId } = req.params;
+
+  const listings = await Listing.find({
+    listedBy: propertyProviderId,
+    status: "available"
+  }).sort({ createdAt: -1 });
+
+  res.json({
+    success: true,
+    data: listings
+  });
+});
+
+export const duplicateListing = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.propertyProvider?.id) {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  const listing = await listingService.getListing(id);
+  if (!listing) throw new NotFoundError("Listing not found");
+
+  if (!listing.listedBy.equals(req.propertyProvider.id)) {
+    throw new UnauthenticatedError("you are not authorized to duplicate this listing");
+  }
+
+  const clone = listing.toObject();
+  delete clone._id;
+
+  clone.status = "unavailable";
+  clone.createdAt = new Date();
+
+  const newListing = await Listing.create(clone);
+
+  res.status(201).json({
+    success: true,
+    message: "Listing duplicated successfully",
+    data: newListing
+  });
+});
+
+export const fetchUnavailableListings = asyncHandler(async (req, res) => {
+  // 1️⃣ Auth check
+  if (!req.propertyProvider || !req.propertyProvider.id) {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  // 2️⃣ Pagination (optional but recommended)
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  // 3️⃣ Query only THIS provider's unavailable listings
+  const filters = {
+    listedBy: req.propertyProvider.id,
+    status: "unavailable"
+  };
+
+  const [listings, total] = await Promise.all([
+    Listing.find(filters)
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }),
+    Listing.countDocuments(filters)
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "Your unavailable listings retrieved successfully",
+    data: {
+      listings,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+

@@ -13,7 +13,6 @@ import {sendEmail} from '../../lib/emailService.js';
 import { deleteUserById } from './user.service.js';
 import config from '../../config/app.config.js';
 import { UnauthorizedError, NotFoundError } from '../../lib/error-definitions.js';
-import {Favourite} from './user.schema.js';
 import * as listingService from '../listing/listing.service.js'
 import crypto from 'crypto';
 
