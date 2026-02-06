@@ -121,4 +121,57 @@ const ListingSchema = new Schema({
 
 export const Listing = model('Listing', ListingSchema);
 
+const ReportListingSchema = new Schema(
+  {
+    listing: {
+      type: Schema.Types.ObjectId,
+      ref: "Listing",
+      required: true
+    },
 
+    reporter: {
+      type: Schema.Types.ObjectId,
+      required: true
+    },
+
+    reporterModel: {
+      type: String,
+      enum: ["User", "PropertyProvider"],
+      required: true
+    },
+
+    reason: {
+      type: String,
+      enum: [
+        "scam",
+        "fake_photos",
+        "misleading_info",
+        "offensive_content",
+        "duplicate_listing",
+        "other"
+      ],
+      reqired: true
+    },
+
+    description: {
+      type: String,
+      maxlength: 500
+    },
+
+    status: {
+      type: String,
+      enum: ["pending", "reviewed", "resolved"],
+      default: "pending"
+    }
+  },
+  {timestamps: true}
+);
+
+//prevent same user from reporting same listing multiple times
+
+ReportListingSchema.index(
+  {listing: 1, reporter: 1, reporterModel: 1},
+  {unique: true}
+);
+
+export const ReportListing = model("ReportListing", ReportListingSchema);

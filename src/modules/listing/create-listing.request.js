@@ -168,3 +168,20 @@ export const updateListingRequest = Joi.object({
   
   status: Joi.string().valid('available', 'unavailable').default('available'),
 })
+
+
+
+export const ReportListingRequest = Joi.object({
+  reason: Joi.string()
+    .valid(
+      "scam",
+      "fake_photos",
+      "misleading_info",
+      "offensive_content",
+      "duplicate_listing",
+      "other"
+    )
+    .required(),
+
+  description: Joi.string().max(500).optional()
+});

@@ -9,6 +9,8 @@ import { NotFoundError, UnauthenticatedError } from '../../lib/error-definitions
 import { createNotification } from "../notifications/notification.service.js";
 import {User} from "../auth/user.schema.js"
 import { PropertyProvider } from '../propertyProvider/propertyProvider.schema.js';
+import { ReportListing } from './listing.schema.js';
+import { ReportListingRequest } from './create-listing.request.js';
 
 
 
@@ -719,3 +721,57 @@ export const fetchUnavailableListings = asyncHandler(async (req, res) => {
   });
 });
 
+export const reportListing = asyncHandler(async (req, res) => {
+  const {id} = req.params //listingId
+
+  //identify reporter
+  let reporterId;
+  let reporterModel;
+
+  if (req.user?._id) {
+    reporterId = req.user._id;
+    reporterModel = "User";
+  } else if (req.propertyProvider?._id) {
+    reporterId = req.propertyProvider._id;
+    reporterModel = "PropertyProvider";
+  } else {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  // validate request body
+  const validator = new Validator();
+  const {value, errors} = validator.validate(
+    ReportListingRequest, req.body
+  );
+
+  if (errors) {
+    throw new ValidationError("Invalid report data", errors);
+  }
+
+  //ensure listing exists
+  const listing = await Listing.findById(id);
+  if (!listing) {
+    throw new NotFoundError("Listing not found");
+  }
+
+  //prevent self-report 
+  if (
+    reporterModel === "PropertyProvider" &&
+    listing.listedBy.toString() === reporterId.toString()
+  ) {
+    throw new ValidationError("you cannot report your own listing");
+  }
+
+  //create report 
+  await ReportListing.create({
+    listing:id,
+    reporter: reporterId,
+    reporterModel,
+    reason: value.reason,
+    description: value.description
+  });
+  return res.status(201).json({
+    success:true,
+    message: "Listing reported successfully, Our team will review it."
+  });
+});

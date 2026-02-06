@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import { createNewListing, deleteSingleListing, fetchAllListings, fetchListing, fetchPublicListings, toggleLikeListing, updateListing, updateListingStatus,
-    incrementListingViews, fetchPopularListings, fetchListingsBypropertyProvider, duplicateListing, fetchUnavailableListings
+    incrementListingViews, fetchPopularListings, fetchListingsBypropertyProvider, duplicateListing, fetchUnavailableListings,
+    reportListing
  } from './listing.controller.js';
 import {uploadListingMedia} from '../../lib/upload.js';
 import propertyProviderMiddleware from '../../app/middleware/propertyProvider.middleware.js';
@@ -19,6 +20,7 @@ router.patch('/increment-listing-views/:id', incrementListingViews);
 router.get('/fetch-popular-listing', fetchPopularListings)
 router.get('/property-provider/:propertyProviderId', fetchListingsBypropertyProvider);
 router.post('/duplicate/:id', propertyProviderMiddleware, duplicateListing);
-router.get('/unavailable-listings', propertyProviderMiddleware, fetchUnavailableListings)
+router.get('/unavailable-listings', propertyProviderMiddleware, fetchUnavailableListings);
+router.post('/report-listing/:id', dualAuthMiddleware, reportListing);
 export const listingRouter = router;
 
