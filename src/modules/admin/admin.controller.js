@@ -16,6 +16,8 @@ import { User } from '../auth/user.schema.js';
 import { PropertyProvider } from '../propertyProvider/propertyProvider.schema.js';
 import * as listingService from '../listing/listing.service.js';
 import { v2 as cloudinary } from "cloudinary";
+import { ReportListing } from '../listing/listing.schema.js';
+import { Listing } from './../listing/listing.schema.js';
 
 function generateOTP() {
     return Math.floor(10000 + Math.random() * 90000).toString(); // 5-digit OTP
@@ -381,3 +383,150 @@ export const updateAdminProfile = asyncHandler(async (req, res) => {
   });
 });
 
+export const fetchReportedListing = asyncHandler(async (req, res) => {
+
+  //check autentication
+  const requester = req.admin;
+  const isAdmin = ['admin'].includes(requester.role);
+
+
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch all reported listings");
+  }
+
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  const [reports, total] = await Promise.all([
+    ReportListing.find({status: "pending"})
+    .populate("listing", "title status listedBy")
+    .populate("reporter", "username email")
+    .sort({createdAt: -1})
+    .skip(skip)
+    .limit(limit),
+    ReportListing.countDocuments({status: "pending"})
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      reports,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+export const reviewReport = asyncHandler(async (req, res) => {
+  const requester = req.admin;
+  const isAdmin = ['admin'].includes(requester.role);
+
+
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch all reported listings");
+  }
+
+  const {reportId} = req.params;
+
+  const report = await ReportListing.findById(reportId);
+  if (!report) {
+    throw new NotFoundError("Report not found");
+  }
+
+  report.status = "reviewed";
+  await report.save();
+
+  res.json({
+    success: true, 
+    message: "Report marked as reviewed"
+  });
+});
+
+export const resolveReport = asyncHandler(async (req, res) => {
+  const requester = req.admin;
+  const isAdmin = ['admin'].includes(requester.role);
+
+
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch all reported listings");
+  }
+
+  const {reportId} = req.params;
+
+  const report = await ReportListing.findById(reportId);
+  if (!report) {
+    throw new NotFoundError("Report not found");
+  }
+
+  report.status = "resolved";
+  await report.save();
+
+  res.json({
+    success: true,
+    message: "Report resolved successfully"
+  });
+});
+
+export const takeDownListing = asyncHandler(async (req, res) => {
+  const requester = req.admin;
+  const isAdmin = ['admin'].includes(requester.role);
+
+
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch all reported listings");
+  }
+  const {listingId} = req.params;
+  const listing = await Listing.findById(listingId);
+  if (!listing) {
+    throw new NotFoundError("Listing not found");
+  }
+  listing.status = "unavailable";
+  listing.isDeleted = true;
+  listing.deletedAt = new Date();
+
+  await listing.save();
+
+  res.json({
+    success: true,
+    message: "Listing has been taken down"
+  });
+});
+
+export const banPropertyProvider = asyncHandler(async(req, res) => {
+  const requester = req.admin;
+  const isAdmin = ['admin'].includes(requester.role);
+
+
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch all reported listings");
+  }
+  const {propertyProviderId} = req.params;
+  const {reason} = req.body;
+
+  const provider = await PropertyProvider.findById(propertyProviderId);
+  if (!provider) {
+    throw new NotFoundError("Property provider not found");
+  }
+
+  provider.isBanned = true;
+  provider.bannedAt = new Date();
+  provider.banReason = reason || "Violation of platform rules";
+
+  await provider.save();
+
+  // disable all their listing
+  await Listing.updateMany(
+    {listedBy: propertyProviderId},
+    {status: "unavailable"}
+  );
+
+  res.json({
+    success: true,
+    message: "Property provider banned successfully"
+  });
+});

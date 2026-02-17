@@ -15,7 +15,7 @@ router.put('/users/:userId', authMiddleware, upload.single('profilePhoto'), upda
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post("/logout", logoutUser);
-//router.post("/favourite/:listingId", authMiddleware, toogleFavouriteListing)
+
 
 export const authRouter = router;
 

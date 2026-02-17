@@ -133,6 +133,18 @@ export const authenticatePropertyProvider = asyncHandler(async(req, res) => {
   if (!propertyProvider) {
     return res.status(404).json({message: 'Property provider not found'});
   }
+
+  // check if banned 
+  if (propertyProvider.isBanned) {
+    return res.status(403).json({
+      success: false,
+      massage: "Your account has been banned.",
+      data: {
+        bannedAt: propertyProvider.bannedAt,
+        reason: propertyProvider.banReason
+      }
+    });
+  }
   if (!propertyProvider.isEmailVerified) {
     //generate new OTP
     const otpCode = generateOTP();

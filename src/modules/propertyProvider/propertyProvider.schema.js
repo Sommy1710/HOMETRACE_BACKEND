@@ -71,6 +71,10 @@ const PropertyProviderSchema = new Schema({
     isDeleted: {type: Boolean, default: false},
     deleteRequestedAt: Date,
 
+    isBanned: {type: Boolean, default: false},
+    bannedAt: Date,
+    banReason: String
+
 }, {timestamps: true});
 
 PropertyProviderSchema.pre('save', async function(next)
