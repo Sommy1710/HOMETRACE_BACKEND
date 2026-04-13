@@ -1,9 +1,12 @@
 /**
  * @swagger
  * tags:
- *   - name: Account Management
- *     description: User authentication, profile management, and password operations
- *
+ *   - name: Auth
+ *     description: Authentication and user account management
+ */
+
+/**
+ * @swagger
  * components:
  *   securitySchemes:
  *     cookieAuth:
@@ -15,11 +18,7 @@
  *     User:
  *       type: object
  *       properties:
- *         id:
- *           type: string
- *         firstname:
- *           type: string
- *         lastname:
+ *         _id:
  *           type: string
  *         username:
  *           type: string
@@ -29,11 +28,65 @@
  *           type: string
  *         profilePhoto:
  *           type: string
- *         isEmailVerified:
- *           type: boolean
  *         role:
  *           type: string
- *           enum: [user, admin]
+ *         isEmailVerified:
+ *           type: boolean
+ *
+ *     RegisterRequest:
+ *       type: object
+ *       required:
+ *         - username
+ *         - email
+ *         - password
+ *       properties:
+ *         username:
+ *           type: string
+ *         email:
+ *           type: string
+ *         password:
+ *           type: string
+ *         country:
+ *           type: string
+ *         profilePhoto:
+ *           type: string
+ *           format: binary
+ *
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *         password:
+ *           type: string
+ *
+ *     VerifyOTPRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - otp
+ *       properties:
+ *         email:
+ *           type: string
+ *         otp:
+ *           type: string
+ *
+ *     ResetPasswordRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - otp
+ *         - newPassword
+ *       properties:
+ *         email:
+ *           type: string
+ *         otp:
+ *           type: string
+ *         newPassword:
+ *           type: string
  */
 
 /**
@@ -41,118 +94,84 @@
  * /api/auth/register:
  *   post:
  *     summary: Register a new user
- *     tags: [Account Management]
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
- *             type: object
- *             required:
- *               - username
- *               - email
- *               - password
- *             properties:
- *               username:
- *                 type: string
- *                 minLength: 3
- *                 maxLength: 30
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 minLength: 6
- *                 maxLength: 32
- *               country:
- *                 type: string
- *                 example: Nigeria
- *               profilePhoto:
- *                 type: string
- *                 format: binary
+ *             $ref: '#/components/schemas/RegisterRequest'
  *     responses:
  *       201:
- *         description: User registered successfully. OTP sent to email.
- *       400:
- *         description: Validation error
+ *         description: User registered and OTP sent
  */
 
 /**
  * @swagger
  * /api/auth/verify:
  *   post:
- *     summary: Verify user email with OTP
- *     tags: [Account Management]
+ *     summary: Verify email using OTP
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - email
- *               - otp
- *             properties:
- *               email:
- *                 type: string
- *               otp:
- *                 type: string
+ *             $ref: '#/components/schemas/VerifyOTPRequest'
  *     responses:
  *       200:
  *         description: Email verified successfully
- *       400:
- *         description: Invalid or expired OTP
- *       404:
- *         description: User not found
  */
+
 /**
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Authenticate user
- *     tags: [Account Management]
+ *     summary: Login user
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
+ *             $ref: '#/components/schemas/LoginRequest'
  *     responses:
  *       200:
- *         description: User successfully logged in
+ *         description: Login successful
  *       403:
  *         description: Email not verified
- *       404:
- *         description: User not found
  */
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: User logged out successfully
+ */
+
 /**
  * @swagger
  * /api/auth/user:
  *   get:
  *     summary: Get authenticated user
- *     tags: [Account Management]
+ *     tags: [Auth]
  *     security:
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: User found successfully
- *       401:
- *         description: Invalid or missing token
+ *         description: Authenticated user retrieved
  */
+
 /**
  * @swagger
  * /api/auth/delete/{userId}:
  *   delete:
  *     summary: Delete user account
- *     tags: [Account Management]
+ *     tags: [Auth]
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -163,16 +182,28 @@
  *           type: string
  *     responses:
  *       200:
- *         description: User account deleted successfully
- *       403:
- *         description: Not authorized
+ *         description: User deleted successfully
  */
+
+/**
+ * @swagger
+ * /api/auth/delete-profile-photo:
+ *   delete:
+ *     summary: Delete user profile photo
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile photo deleted
+ */
+
 /**
  * @swagger
  * /api/auth/users/{userId}:
  *   put:
  *     summary: Update user account
- *     tags: [Account Management]
+ *     tags: [Auth]
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -184,111 +215,129 @@
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
- *             description: At least one field (username or profilePhoto) must be provided
  *             properties:
  *               username:
  *                 type: string
- *                 minLength: 3
- *                 maxLength: 30
  *               profilePhoto:
  *                 type: string
- *                 format: uri
- *             anyOf:
- *               - required: [username]
- *               - required: [profilePhoto]
+ *                 format: binary
  *     responses:
  *       200:
  *         description: User updated successfully
- *       400:
- *         description: Validation error
- *       403:
- *         description: Not authorized
- *       404:
- *         description: User not found
  */
 
 /**
  * @swagger
  * /api/auth/forgot-password:
  *   post:
- *     summary: Request password reset OTP
- *     tags: [Account Management]
+ *     summary: Send password reset OTP
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - email
  *             properties:
  *               email:
  *                 type: string
  *     responses:
  *       200:
- *         description: Password reset code sent
- *       404:
- *         description: User not found
+ *         description: OTP sent
  */
+
 /**
  * @swagger
  * /api/auth/reset-password:
  *   post:
- *     summary: Reset user password
- *     tags: [Account Management]
+ *     summary: Reset password with OTP
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - email
- *               - otp
- *               - newPassword
- *             properties:
- *               email:
- *                 type: string
- *               otp:
- *                 type: string
- *               newPassword:
- *                 type: string
+ *             $ref: '#/components/schemas/ResetPasswordRequest'
  *     responses:
  *       200:
- *         description: Password reset successfully
- *       400:
- *         description: Invalid or expired OTP
+ *         description: Password reset successful
  */
+
 /**
  * @swagger
- * /api/auth/delete-profile-photo:
- *   delete:
- *     summary: Delete logged-in user's profile photo
- *     tags: [Account Management]
+ * /api/auth/toggle-favourite-listing/{id}:
+ *   post:
+ *     summary: Add or remove listing from favourites
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Favourite toggled
+ */
+
+/**
+ * @swagger
+ * /api/auth/fetch-favourite-listings:
+ *   get:
+ *     summary: Get user's favourite listings
+ *     tags: [Auth]
  *     security:
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: Profile photo deleted successfully
- *       400:
- *         description: No profile photo exists
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- *       500:
- *         description: Failed to delete profile photo
+ *         description: Favourites retrieved
  */
+
 /**
  * @swagger
- * /api/auth/logout:
- *   post:
- *     summary: Logout user
- *     tags: [Account Management]
+ * /api/auth/profile/{id}:
+ *   get:
+ *     summary: Get user or property provider profile
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
- *         description: User successfully logged out
+ *         description: Profile retrieved
+ */
+
+/**
+ * @swagger
+ * /api/auth/search:
+ *   get:
+ *     summary: Search users and property providers by username
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: username
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *     responses:
+ *       200:
+ *         description: Search results returned
  */

@@ -21,6 +21,12 @@ const UserSchema = new Schema ({
         type: String,
         default: 'Nigeria'
     },
+    favourites: [
+        {
+            listingId: {type: mongoose.Schema.Types.ObjectId, ref: "Listing"},
+            addedAt: {type: Date, default: Date.now}
+        }
+    ],
     profilePhoto: {type: String, default: ''},
     isEmailVerified: {type: Boolean, default: false},
     role: {

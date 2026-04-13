@@ -1,21 +1,5 @@
 import mongoose, {model, Schema} from 'mongoose';
 
-/*const ListingSchema = new Schema ({
-    author: {type: mongoose.Schema.Types.ObjectId, ref: "User", required: true},
-    description: {type: String, required: true},
-    photos: [{type: String}],
-    price: {type: Number, required: true},
-    location: {type: String, required: true},
-    amenities: {type: String, required: true},
-    status: {
-        type: String,
-        enum: ['available', 'unavailable'],
-        default: 'available'
-    }
-
-})*/
-
-
 const ListingSchema = new Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: "PropertyProvider", required: true },
   title: { type: String, required: true },
@@ -99,6 +83,17 @@ const ListingSchema = new Schema({
   videos: [{type: String}],
   price: { type: Number, required: true },
   location: { type: String, required: true },
+  geoLocation: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      
+    }
+  },
   amenities: { type: String},
   status: {
     type: String,
@@ -118,6 +113,14 @@ const ListingSchema = new Schema({
 
   createdAt: {type: Date, default: Date.now},
 }, { timestamps: true });
+
+//text index for search
+ListingSchema.index({
+  title: "text",
+  description: "text",
+  amenities: "text",
+  location: "text"
+});
 
 export const Listing = model('Listing', ListingSchema);
 

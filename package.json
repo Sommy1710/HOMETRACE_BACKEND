@@ -4,6 +4,7 @@
     "@sentry/node": "^10.22.0",
     "argon": "^2.0.21",
     "argon2": "^0.44.0",
+    "axios": "^1.14.0",
     "cloudinary": "^2.7.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",

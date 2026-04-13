@@ -8,7 +8,7 @@ import {createAdminAccount,
         listAllPropertyProvidersByAdmin,
     updateAdminProfile,
     deleteSingleListingByAdmin, verifyAdminEmailOTP, fetchReportedListing, reviewReport, resolveReport, takeDownListing,
-    banPropertyProvider} from './admin.controller.js';
+    toggleBanPropertyProvider} from './admin.controller.js';
 import adminMiddleware from '../../app/middleware/admin.middleware.js';
 import { adminLimiter } from './adminLimiter.js';
 const router = Router();
@@ -27,6 +27,6 @@ router.get('/listing', adminMiddleware, fetchReportedListing);
 router.patch('/review-report/:reportId', adminMiddleware, reviewReport);
 router.patch('/resolve-report/:reportId', adminMiddleware, resolveReport);
 router.patch('/take-down-listing/:listingId', adminMiddleware, takeDownListing);
-router.patch("/ban-propertyProvider/:propertyProviderId", adminMiddleware, banPropertyProvider);
+router.patch("/ban-propertyProvider/:propertyProviderId", adminMiddleware, toggleBanPropertyProvider);
 
 export const adminRouter = router;

@@ -50,15 +50,6 @@ export class TooManyRequestError extends Error
     }
 }
 
-/*export class ValidationError extends Error
-{
-    constructor(message, error)
-    {
-        super(message);
-        this.error = error;
-        this.statusCode = 422;
-    }
-}*/
 export class ValidationError extends Error {
   constructor(message, errors) {
     super(message);

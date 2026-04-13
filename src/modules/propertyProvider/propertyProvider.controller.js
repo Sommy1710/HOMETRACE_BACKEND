@@ -3,7 +3,7 @@ import * as authService from './auth.service.js';
 import {Validator} from '../../lib/validator.js';
 import {CreatePropertyProviderRequest, UpdatePropertyProviderRequest} from './create-propertyProvider.request.js';
 import { AuthPropertyProviderRequest } from './auth-propertyProvider.request.js';
-import { ValidationError } from '../../lib/error-definitions.js';
+import { ValidationError, NotFoundError } from '../../lib/error-definitions.js';
 import {PropertyProvider} from './propertyProvider.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import {sendEmail} from '../../lib/emailService.js';

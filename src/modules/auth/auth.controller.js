@@ -1,4 +1,3 @@
-//import sanitize from 'mongo-sanitize';
 import {asyncHandler} from '../../lib/util.js';
 import argon from 'argon2';
 import * as authService from './auth.service.js';
@@ -6,14 +5,15 @@ import {Validator} from '../../lib/validator.js';
 import {CreateUserRequest, UpdateUserRequest, ChangeUserPasswordRequest} from './create-user.request.js';
 import { AuthUserRequest, } from './auth-user.request.js';
 import { ValidationError } from '../../lib/error-definitions.js';
-//import config from '../../config/app.config.js';
 import {User} from './user.schema.js';
+import { PropertyProvider } from "../propertyProvider/propertyProvider.schema.js";
 import {v2 as cloudinary} from 'cloudinary';
 import {sendEmail} from '../../lib/emailService.js';
 import { deleteUserById } from './user.service.js';
 import config from '../../config/app.config.js';
-import { UnauthorizedError, NotFoundError } from '../../lib/error-definitions.js';
-import * as listingService from '../listing/listing.service.js'
+import { UnauthorizedError, NotFoundError, UnauthenticatedError } from '../../lib/error-definitions.js';
+import * as listingService from '../listing/listing.service.js';
+import { Listing } from '../listing/listing.schema.js';
 import crypto from 'crypto';
 
 
@@ -399,42 +399,208 @@ export const resetPassword = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Password reset successfully.' });
 });
 
-/*export const toogleFavouriteListing = asyncHandler(async (req, res) => {
-  const {listingId} = req.params;
 
-  //check user authentication
+export const toggleFavouriteListing = asyncHandler(async (req, res) => {
+  const { id } = req.params; // listingId
+
+  // 1️⃣ Auth check
   if (!req.user?.id) {
-    throw new UnauthorizedError("User not authenticated");
+    throw new UnauthenticatedError("Not authenticated");
   }
-  const userId = req.user.id;
 
-  //ensure that the listing exists
-  const listing = await listingService.getListing(listingId);
+  // 2️⃣ Fetch listing
+  const listing = await listingService.getListing(id);
   if (!listing) {
-    throw new NotFoundError("listing not found");
+    throw new NotFoundError("Listing not found");
   }
 
-  //check if already favorited
-  const existingFavourite = await Favourite.findOne({user: userId, listing: listingId});
+  // 3️⃣ Fetch user from DB using decoded JWT id
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw new UnauthenticatedError("User not found");
+  }
 
-  if (existingFavourite) {
-    // 🔴 Remove from favorites
-    await existingFavourite.deleteOne();
+  // 4️⃣ Check if already favourited
+  const alreadyFavourited = user.favourites.find(
+    fav => fav.listingId.toString() === id
+  );
+
+  if (alreadyFavourited) {
+    // Remove from favourites
+    user.favourites = user.favourites.filter(
+      fav => fav.listingId.toString() !== id
+    );
+    await user.save();
+
     return res.status(200).json({
       success: true,
       message: "Listing removed from favourites",
+      data: {
+        favouritesCount: user.favourites.length,
+        favourited: false
+      }
     });
   } else {
-    // ❤️ Add to favorites
-    const favourite = await Favourite.create({
-      user: userId,
-      listing: listingId
-    });
+    // Add to favourites
+    user.favourites.push({ listingId: id });
+    await user.save();
 
     return res.status(200).json({
       success: true,
       message: "Listing added to favourites",
-      data: favourite
+      data: {
+        favouritesCount: user.favourites.length,
+        favourited: true
+      }
     });
   }
-})*/
+});
+
+
+export const fetchMyFavourites = asyncHandler(async (req, res) => {
+  // 1️⃣ Auth check
+  if (!req.user?.id) {
+    throw new UnauthenticatedError("Not authenticated");
+  }
+
+  // 2️⃣ Fetch the authenticated user
+  const user = await User.findById(req.user.id).populate({
+    path: "favourites.listingId",
+    model: "Listing",
+    select: "title location type status photos createdAt"
+  });
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
+  // 3️⃣ Return only this user's favourites
+  return res.status(200).json({
+    success: true,
+    message: "Your favourites retrieved successfully",
+    data: {
+      favourites: user.favourites.map(fav => ({
+        listingId: fav.listingId?._id,
+        title: fav.listingId?.title,
+        location: fav.listingId?.location,
+        type: fav.listingId?.type,
+        status: fav.listingId?.status,
+        photos: fav.listingId?.photos,
+        addedAt: fav.addedAt,
+      }))
+    }
+  });
+});
+
+export const getProfile = asyncHandler(async (req, res) => {
+  const { id } = req.params; 
+
+  let profile;
+  let profileData = {};
+
+  // Try User first
+  profile = await User.findById(id).select("username country profilePhoto role favourites");
+  if (profile) {
+    const isOwner = req.user?.id === id;
+
+    profileData = {
+      username: profile.username,
+      country: profile.country,
+      profilePhoto: profile.profilePhoto,
+      role: profile.role,
+    };
+
+    if (isOwner) {
+      profileData.favourites = profile.favourites;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `${profile.role} profile retrieved successfully`,
+      data: profileData,
+    });
+  }
+
+  // If not a User, try PropertyProvider
+  profile = await PropertyProvider.findById(id).select("username country bio profilePhoto role followers");
+  if (profile) {
+    // fetch all listings created by this provider
+    const listings = await Listing.find({ author: id }).select("title description type price location amenities photos videos status likes views");
+
+    profileData = {
+      username: profile.username,
+      country: profile.country,
+      bio: profile.bio,
+      profilePhoto: profile.profilePhoto,
+      role: profile.role,
+      followers: profile.followers,
+      listings: listings, // include listings here
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: `${profile.role} profile retrieved successfully`,
+      data: profileData,
+    });
+  }
+
+  // If neither found
+  throw new NotFoundError("Profile not found");
+});
+
+export const searchByUsername = asyncHandler(async (req, res) => {
+  const { username, page = 1, limit = 10 } = req.query;
+
+  if (!username) {
+    return res.status(400).json({
+      success: false,
+      message: "Username query parameter is required",
+    });
+  }
+
+  const pageNumber = parseInt(page, 10);
+  const pageSize = parseInt(limit, 10);
+  const skip = (pageNumber - 1) * pageSize;
+
+  const regex = new RegExp(username.trim(), "i");
+
+  // remove sensitive fields from User results
+  const users =
+    (await User.find({ username: regex })
+      .select(
+        "-favourites -email -password -isEmailVerified -emailVerificationCode -emailCodeExpiry -isDeleted -passwordResetCode -passwordResetExpiry"
+      )
+      .skip(skip)
+      .limit(pageSize)) || [];
+
+  // remove sensitive fields and banned accounts from PropertyProvider results
+  const providers =
+    (await PropertyProvider.find({ username: regex, isBanned: false })
+      .select(
+        "-email -password -isEmailVerified -emailVerificationCode -emailCodeExpiry -isDeleted -banReason -bannedAt -isBanned"
+      )
+      .skip(skip)
+      .limit(pageSize)) || [];
+
+  const results = [
+    ...users.map((u) => ({ type: "User", data: u })),
+    ...providers.map((p) => ({ type: "PropertyProvider", data: p })),
+  ];
+
+  const userCount = await User.countDocuments({ username: regex });
+  const providerCount = await PropertyProvider.countDocuments({
+    username: regex,
+    isBanned: false,
+  });
+  const totalCount = userCount + providerCount;
+
+  res.json({
+    success: true,
+    count: results.length,
+    totalCount,
+    currentPage: pageNumber,
+    totalPages: Math.ceil(totalCount / pageSize),
+    results,
+  });
+});
+

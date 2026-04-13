@@ -6,12 +6,9 @@ import { AuthAdminRequest } from './auth-admin.request.js';
 import { ValidationError } from '../../lib/error-definitions.js';
 import {Admin} from './admin.schema.js';
 import {sendEmail} from '../../lib/emailService.js';
-//import { deleteAdminById } from './admin.service.js';
 import { deleteUserById } from '../auth/user.service.js';
 import { deletePropertyProviderById } from '../propertyProvider/propertyProvider.service.js';
-//import config from '../../config/app.config.js';
 import { UnauthorizedError, NotFoundError } from '../../lib/error-definitions.js';
-//import validator from './../../../../speakeasy-troubleshooting/src/lib/input-validator';
 import { User } from '../auth/user.schema.js';
 import { PropertyProvider } from '../propertyProvider/propertyProvider.schema.js';
 import * as listingService from '../listing/listing.service.js';
@@ -497,36 +494,57 @@ export const takeDownListing = asyncHandler(async (req, res) => {
   });
 });
 
-export const banPropertyProvider = asyncHandler(async(req, res) => {
+export const toggleBanPropertyProvider = asyncHandler(async (req, res) => {
   const requester = req.admin;
   const isAdmin = ['admin'].includes(requester.role);
 
-
   if (!isAdmin) {
-    throw new UnauthorizedError("You are not authorized to fetch all reported listings");
+    throw new UnauthorizedError("You are not authorized to perform this action");
   }
-  const {propertyProviderId} = req.params;
-  const {reason} = req.body;
+
+  const { propertyProviderId } = req.params;
+  const { reason } = req.body;
 
   const provider = await PropertyProvider.findById(propertyProviderId);
   if (!provider) {
     throw new NotFoundError("Property provider not found");
   }
 
-  provider.isBanned = true;
-  provider.bannedAt = new Date();
-  provider.banReason = reason || "Violation of platform rules";
+  if (provider.isBanned) {
+    // Unban logic
+    provider.isBanned = false;
+    provider.bannedAt = null;
+    provider.banReason = null;
 
-  await provider.save();
+    await provider.save();
 
-  // disable all their listing
-  await Listing.updateMany(
-    {listedBy: propertyProviderId},
-    {status: "unavailable"}
-  );
+    // Re-enable their listings
+    await Listing.updateMany(
+      { listedBy: propertyProviderId },
+      { status: "available" }
+    );
 
-  res.json({
-    success: true,
-    message: "Property provider banned successfully"
-  });
+    return res.json({
+      success: true,
+      message: "Property provider unbanned successfully"
+    });
+  } else {
+    // Ban logic
+    provider.isBanned = true;
+    provider.bannedAt = new Date();
+    provider.banReason = reason || "Violation of platform rules";
+
+    await provider.save();
+
+    // Disable all their listings
+    await Listing.updateMany(
+      { listedBy: propertyProviderId },
+      { status: "unavailable" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Property provider banned successfully"
+    });
+  }
 });

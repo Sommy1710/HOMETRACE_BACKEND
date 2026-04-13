@@ -1,5 +1,7 @@
 import {Router} from 'express';
-import {createPropertyProviderAccount, verifyEmailOTP, authenticatePropertyProvider, deletePropertyProviderAccount, getAuthenticatedPropertyProvider, logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword,  toggleFollowPropertyProvider} from './propertyProvider.controller.js';
+import {createPropertyProviderAccount, verifyEmailOTP, authenticatePropertyProvider, deletePropertyProviderAccount, getAuthenticatedPropertyProvider,
+     logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword,  toggleFollowPropertyProvider,
+      } from './propertyProvider.controller.js';
 import upload from '../../lib/upload.js';
 import propertyProviderMiddleware from '../../app/middleware/propertyProvider.middleware.js';
 import { propertyProviderLimiter } from './propertyProviderLimiter.js';

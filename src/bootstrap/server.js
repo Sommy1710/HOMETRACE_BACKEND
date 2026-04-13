@@ -1,4 +1,3 @@
-//import emailRoutes from '../routes/emailRoutes.js'
 import cors from 'cors';
 import compression from 'compression';
 import helmet from 'helmet';

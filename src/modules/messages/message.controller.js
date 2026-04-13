@@ -5,6 +5,7 @@ import { sendMessageRequest } from "./send.messaage.request.js";
 import {v2 as cloudinary} from 'cloudinary';
 import { Readable } from "stream";
 import {User} from "../auth/user.schema.js";
+import { PropertyProvider } from "../propertyProvider/propertyProvider.schema.js";
 import mongoose from "mongoose";
 
 export const getMessages = async (req, res, next) => {
@@ -19,7 +20,7 @@ export const getMessages = async (req, res, next) => {
       });
     }
 
-    // Fetch messages where the user is either sender or receiver
+    // Fetch messages where the user/propertyProvider is either sender or receiver
     const messages = await Message.find({
       $or: [
         { sender: userId },
@@ -48,10 +49,9 @@ export const getMessages = async (req, res, next) => {
 
 export const sendMessage = async (req, res, next) => {
   try {
-    // ✅ Ensure body exists (multipart safety)
     req.body = req.body || {};
 
-    // ✅ Auth check
+    //Auth check
     if (!req.user?.id) {
       return res.status(401).json({
         success: false,
@@ -60,12 +60,13 @@ export const sendMessage = async (req, res, next) => {
     }
 
     const senderId = req.user.id;
+    const senderModel =
+      req.user.role === "propertyProvider" ? "PropertyProvider" : "User";
 
-    // ✅ Extract uploaded photos correctly (fields())
+    //Handleuploaded photos
     const uploadedPhotos = req.files?.photos || [];
     const photoUrls = [];
 
-    // Helper: buffer → stream
     const bufferToStream = (buffer) => {
       const readable = new Readable();
       readable._read = () => {};
@@ -74,7 +75,6 @@ export const sendMessage = async (req, res, next) => {
       return readable;
     };
 
-    // Upload photos to Cloudinary
     for (const file of uploadedPhotos) {
       const imageUrl = await new Promise((resolve, reject) => {
         bufferToStream(file.buffer).pipe(
@@ -87,11 +87,9 @@ export const sendMessage = async (req, res, next) => {
           )
         );
       });
-
       photoUrls.push(imageUrl);
     }
 
-    // Attach photos to body for Joi
     if (photoUrls.length > 0) {
       req.body.photos = photoUrls;
     }
@@ -117,8 +115,15 @@ export const sendMessage = async (req, res, next) => {
       throw new ValidationError("Receiver ID is not valid");
     }
 
-    // ✅ Ensure receiver exists
-    const receiverExists = await User.exists({ _id: value.receiver });
+    // ✅ Ensure receiver exists in either User or PropertyProvider
+    let receiverExists = await User.exists({ _id: value.receiver });
+    let receiverModel = "User";
+
+    if (!receiverExists) {
+      receiverExists = await PropertyProvider.exists({ _id: value.receiver });
+      receiverModel = receiverExists ? "PropertyProvider" : null;
+    }
+
     if (!receiverExists) {
       throw new ValidationError("Receiver does not exist");
     }
@@ -126,7 +131,9 @@ export const sendMessage = async (req, res, next) => {
     // ✅ Create message
     const message = await Message.create({
       sender: senderId,
+      senderModel,
       receiver: value.receiver,
+      receiverModel,
       content: value.content,
       photos: value.photos || [],
     });

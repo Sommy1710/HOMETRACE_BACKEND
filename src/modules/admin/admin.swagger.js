@@ -88,6 +88,7 @@
  *           type: string
  *           example: Violation of platform rules
  */
+
 /**
  * @swagger
  * /api/admin/register:
@@ -103,9 +104,12 @@
  *     responses:
  *       201:
  *         description: Admin registered successfully. OTP sent.
+ *       400:
+ *         description: Validation error
  *       409:
  *         description: Admin already exists
  */
+
 /**
  * @swagger
  * /api/admin/verify:
@@ -126,6 +130,7 @@
  *       404:
  *         description: Admin not found
  */
+
 /**
  * @swagger
  * /api/admin/login:
@@ -142,10 +147,11 @@
  *       200:
  *         description: Admin successfully logged in
  *       403:
- *         description: Email not verified
+ *         description: Email not verified (OTP resent)
  *       404:
  *         description: Admin not found
  */
+
 /**
  * @swagger
  * /api/admin/user:
@@ -160,6 +166,7 @@
  *       401:
  *         description: Unauthorized
  */
+
 /**
  * @swagger
  * /api/admin/user/{adminId}:
@@ -188,6 +195,7 @@
  *       404:
  *         description: Admin not found
  */
+
 /**
  * @swagger
  * /api/admin/users:
@@ -201,14 +209,17 @@
  *         name: page
  *         schema:
  *           type: integer
+ *           example: 1
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *           example: 10
  *       - in: query
  *         name: sortBy
  *         schema:
  *           type: string
+ *           example: createdAt
  *       - in: query
  *         name: order
  *         schema:
@@ -218,6 +229,7 @@
  *       200:
  *         description: Users retrieved successfully
  */
+
 /**
  * @swagger
  * /api/admin/propertyProviders:
@@ -230,6 +242,7 @@
  *       200:
  *         description: Property providers retrieved successfully
  */
+
 /**
  * @swagger
  * /api/admin/user/{userId}:
@@ -248,6 +261,7 @@
  *       200:
  *         description: User deleted successfully
  */
+
 /**
  * @swagger
  * /api/admin/propertyProvider/{propertyProviderId}:
@@ -266,6 +280,7 @@
  *       200:
  *         description: Property provider deleted successfully
  */
+
 /**
  * @swagger
  * /api/admin/listing:
@@ -278,6 +293,7 @@
  *       200:
  *         description: Reported listings retrieved
  */
+
 /**
  * @swagger
  * /api/admin/review-report/{reportId}:
@@ -296,6 +312,7 @@
  *       200:
  *         description: Report marked as reviewed
  */
+
 /**
  * @swagger
  * /api/admin/resolve-report/{reportId}:
@@ -314,6 +331,7 @@
  *       200:
  *         description: Report resolved successfully
  */
+
 /**
  * @swagger
  * /api/admin/take-down-listing/{listingId}:
@@ -332,6 +350,7 @@
  *       200:
  *         description: Listing taken down successfully
  */
+
 /**
  * @swagger
  * /api/admin/listing/{id}:
@@ -350,11 +369,13 @@
  *       200:
  *         description: Listing deleted successfully
  */
+
 /**
  * @swagger
  * /api/admin/ban-propertyProvider/{propertyProviderId}:
  *   patch:
- *     summary: Ban property provider and disable listings
+ *     summary: Ban or unban property provider and update their listings
+ *     description: Toggles ban status. If banned → unbans, if active → bans.
  *     tags: [Admin]
  *     security:
  *       - cookieAuth: []
@@ -372,5 +393,5 @@
  *             $ref: '#/components/schemas/BanPropertyProviderRequest'
  *     responses:
  *       200:
- *         description: Property provider banned successfully
+ *         description: Property provider ban status updated successfully
  */
