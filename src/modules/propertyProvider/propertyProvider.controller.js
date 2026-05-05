@@ -13,6 +13,8 @@ import { UnauthorizedError } from '../../lib/error-definitions.js';
 import crypto from 'crypto';
 import { createNotification } from "../notifications/notification.service.js";
 import {User} from "../auth/user.schema.js";
+import { ProfileView } from './propertyProvider.schema.js';
+
 
 
 
@@ -496,6 +498,121 @@ export const toggleFollowPropertyProvider = asyncHandler(async (req, res) => {
     data: {
       following: !alreadyFollowing,
       followersCount: provider.followers.length
+    }
+  });
+});
+
+export const logProfileView = asyncHandler(async (req, res) => {
+  const { propertyProviderId } = req.params;
+
+  const provider = await PropertyProvider.findById(propertyProviderId);
+  if (!provider) {
+    return res.status(404).json({ message: "Property provider not found." });
+  }
+
+  let viewerId = null;
+  let viewerModel = null;
+  let isFollower = false;
+
+  if (req.user?._id) {
+    viewerId = req.user._id;
+    viewerModel = "User";
+    isFollower = provider.followers.some(
+      f => f.followerId.toString() === viewerId.toString() && f.followerModel === "User"
+    );
+  } else if (req.propertyProvider?.id) {
+    //Skip logging if provider is viewing their own profile
+    if (req.propertyProvider.id.toString() !== propertyProviderId.toString()) {
+      viewerId = req.propertyProvider.id;
+      viewerModel = "PropertyProvider";
+      isFollower = provider.followers.some(
+        f => f.followerId.toString() === viewerId.toString() && f.followerModel === "PropertyProvider"
+      );
+    }
+  } else {
+    throw new UnauthorizedError("Not authenticated");
+  }
+
+  if (viewerId && viewerModel) {
+    await ProfileView.create({
+      providerId: provider._id,
+      viewerId,
+      viewerModel,
+      isFollower
+    });
+  }
+
+  return res.status(200).json({ success: true, message: "Profile view logged" });
+});
+
+
+
+export const getProfileViewAnalytics = asyncHandler(async (req, res) => {
+  const { propertyProviderId } = req.params;
+  const requester = req.propertyProvider;
+
+  if (!requester) {
+    throw new UnauthorizedError("You must be logged in as a property provider to view analytics.");
+  }
+
+  if (!requester.id || !propertyProviderId) {
+    throw new UnauthorizedError("Invalid request: missing provider ID.");
+  }
+
+  if (requester.id.toString() !== propertyProviderId.toString()) {
+    throw new UnauthorizedError("You are not authorized to view analytics for another provider.");
+  }
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const stats = await ProfileView.aggregate([
+    { $match: { providerId: requester.id, viewedAt: { $gte: thirtyDaysAgo } } },
+    { $group: { _id: "$isFollower", count: { $sum: 1 } } }
+  ]);
+
+  const total = stats.reduce((sum, s) => sum + s.count, 0);
+  const followerCount = stats.find(s => s._id === true)?.count || 0;
+  const nonFollowerCount = total - followerCount;
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      totalViews: total,
+      followerViews: followerCount,
+      nonFollowerViews: nonFollowerCount,
+      followerPercentage: total > 0 ? (followerCount / total) * 100 : 0,
+      nonFollowerPercentage: total > 0 ? (nonFollowerCount / total) * 100 : 0
+    }
+  });
+});
+
+export const getAccountsReached = asyncHandler(async (req, res) => {
+  const {propertyProviderId} = req.params;
+  const requester = req.propertyProvider;
+
+  if (!requester) {
+    throw new UnauthorizedError('you must be logged in as a property provider to view accounts reached');
+
+  }
+  if (!requester.id || requester.id.toString() !== propertyProviderId.toString()) {
+    throw new UnauthorizedError('you are not authorized to view accounts reached for another provider.');
+  }
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 10);
+
+  //aggregate unique viewers in the last 30 days
+  const stats = await ProfileView.aggregate([
+    {$match: {providerId: requester.id, viewedAt: {$gte: thirtyDaysAgo}}},
+    {$group: {_id: "$viewerId"}},
+    {$count: "uniqueViewers"}
+  ])
+
+  const accountsReached = stats.length > 0 ? stats[0].uniqueViewers : 0;
+  return res.status(200).json({
+    success: true,
+    data: {
+      accountsReached,
+      period: "last 30 days"
     }
   });
 });

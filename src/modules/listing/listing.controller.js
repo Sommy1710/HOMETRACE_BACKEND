@@ -5,7 +5,7 @@ import { createListingRequest,updateListingRequest } from './create-listing.requ
 import {ValidationError} from '../../lib/error-definitions.js';
 import { Listing } from './listing.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
-import { NotFoundError, UnauthenticatedError } from '../../lib/error-definitions.js';
+import { NotFoundError, UnauthenticatedError, UnauthorizedError } from '../../lib/error-definitions.js';
 import { createNotification } from "../notifications/notification.service.js";
 import {User} from "../auth/user.schema.js"
 import { PropertyProvider } from '../propertyProvider/propertyProvider.schema.js';
@@ -665,57 +665,6 @@ export const reportListing = asyncHandler(async (req, res) => {
   });
 });
 
-/*export const searchListings = asyncHandler(async (req, res) => {
-  const { location, minPrice, maxPrice, type, description, amenities,page = 1, limit = 10 } = req.query;
-
-  // Build query object dynamically
-  const query = {status: "available"};
-
-  if (location) {
-    query.location = { $regex: location, $options: "i" }; // case-insensitive match
-  }
-
-  if (minPrice || maxPrice) {
-    query.price = {};
-    if (minPrice) query.price.$gte = parseFloat(minPrice);
-    if (maxPrice) query.price.$lte = parseFloat(maxPrice);
-  }
-
-  if (type) {
-    query.type = type; // exact match since you already have enums
-  }
-
-  if (description) {
-    query.description = { $regex: description, $options: "i" };
-  }
-
-  if (amenities) {
-    query.amenities = { $regex: amenities, $options: "i" };
-  }
-
-  //pagination
-  const pageNumber = parseInt(page, 10);
-  const pageSize = parseInt(limit, 10);
-  const skip = (pageNumber - 1) * pageSize;
-
-  // Execute query with pagination
-  const listings = await Listing.find(query)
-    .sort({ createdAt: -1 }) // newest first
-    .skip(skip)
-    .limit(pageSize); // limit results
-  const totalCount = await Listing.countDocuments(query);
-
-
-  res.json({
-    success: true,
-    count: listings.length,
-    totalCount,
-    currentPage: pageNumber,
-    totalPages: Math.ceil(totalCount / pageSize),
-    listings,
-  });
-});*/
-
 export const searchListings = asyncHandler(async (req, res) => {
   const { location, minPrice, maxPrice, type, description, amenities, page = 1, limit = 10 } = req.query;
 
@@ -764,5 +713,174 @@ export const searchListings = asyncHandler(async (req, res) => {
     currentPage: pageNumber,
     totalPages: Math.ceil(totalCount / pageSize),
     listings,
+  });
+});
+
+export const getTotalListingsByProvider = asyncHandler(async (req, res) => {
+  const { propertyProviderId } = req.params;
+  const requester = req.propertyProvider;
+
+  if (!requester || !requester.id) {
+    throw new UnauthorizedError("You must be logged in as a property provider to view listings summary.");
+  }
+
+  if (String(requester.id) !== String(propertyProviderId)) {
+    throw new UnauthorizedError("You are not authorized to view listings summary for another provider.");
+  }
+
+  const availableCount = await Listing.countDocuments({ listedBy: propertyProviderId, status: "available" });
+  const unavailableCount = await Listing.countDocuments({ listedBy: propertyProviderId, status: "unavailable" });
+  const totalCount = availableCount + unavailableCount;
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      propertyProviderId,
+      availableListings: availableCount,
+      unavailableListings: unavailableCount,
+      totalListings: totalCount
+    }
+  });
+});
+
+export const getTopThreeMostViewedListingsForMonth = asyncHandler(async (req, res) => {
+  const { propertyProviderId } = req.params;
+  const requester = req.propertyProvider;
+
+  if (!requester || !requester.id) {
+    throw new UnauthorizedError("You must be logged in as a property provider to view this data.");
+  }
+
+  if (String(requester.id) !== String(propertyProviderId)) {
+    throw new UnauthorizedError("You are not authorized to view listings for another provider.");
+  }
+
+  // Calculate start and end of current month
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  // Find top 3 most viewed available listings for this provider in current month
+  const listings = await Listing.find({
+    listedBy: propertyProviderId,
+    status: "available",
+    createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+  })
+    .sort({ views: -1 })
+    .limit(3);
+
+  if (!listings || listings.length === 0) {
+    throw new NotFoundError("No available listings found for this month.");
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      propertyProviderId,
+      topListings: listings
+    }
+  });
+});
+
+export const getTopTrendingListings = asyncHandler(async (req, res) => {
+  const limit = Number(req.query.limit) || 10; // default top 10
+
+  // Only consider available listings
+  const listings = await Listing.aggregate([
+    { $match: { status: "available" } },
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" },
+        engagementScore: { $add: ["$views", { $size: "$likes" }] }
+      }
+    },
+    { $sort: { engagementScore: -1, createdAt: -1 } }, // sort by engagement, then newest
+    { $limit: limit }
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: "Top trending listings retrieved successfully",
+    data: listings
+  });
+});
+
+export const getHotLocations = asyncHandler(async (req, res) => {
+  const limit = Number(req.query.limit) || 5; // default top 5 locations
+
+  const hotLocations = await Listing.aggregate([
+    { $match: { status: "available" } }, // only available listings
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" }
+      }
+    },
+    {
+      $group: {
+        _id: "$location",
+        totalViews: { $sum: "$views" },
+        totalLikes: { $sum: "$likesCount" },
+        listingsCount: { $sum: 1 }
+      }
+    },
+    {
+      $addFields: {
+        engagementScore: { $add: ["$totalViews", "$totalLikes"] }
+      }
+    },
+    { $sort: { engagementScore: -1 } }, // sort by engagement
+    { $limit: limit }
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: "Hot locations retrieved successfully",
+    data: hotLocations.map(loc => ({
+      location: loc._id,
+      listingsCount: loc.listingsCount,
+      totalViews: loc.totalViews,
+      totalLikes: loc.totalLikes,
+      engagementScore: loc.engagementScore
+    }))
+  });
+});
+
+export const getPopularPropertyTypes = asyncHandler(async (req, res) => {
+  const limit = Number(req.query.limit) || 5; // default top 5 property types
+
+  const popularTypes = await Listing.aggregate([
+    { $match: { status: "available" } }, // only available listings
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" }
+      }
+    },
+    {
+      $group: {
+        _id: "$type",
+        totalViews: { $sum: "$views" },
+        totalLikes: { $sum: "$likesCount" },
+        listingsCount: { $sum: 1 }
+      }
+    },
+    {
+      $addFields: {
+        engagementScore: { $add: ["$totalViews", "$totalLikes"] }
+      }
+    },
+    { $sort: { engagementScore: -1 } }, // sort by engagement
+    { $limit: limit }
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: "Popular property types retrieved successfully",
+    data: popularTypes.map(type => ({
+      propertyType: type._id,
+      listingsCount: type.listingsCount,
+      totalViews: type.totalViews,
+      totalLikes: type.totalLikes,
+      engagementScore: type.engagementScore
+    }))
   });
 });

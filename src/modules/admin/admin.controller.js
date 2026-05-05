@@ -548,3 +548,118 @@ export const toggleBanPropertyProvider = asyncHandler(async (req, res) => {
     });
   }
 });
+
+export const getListingStatsByAdmin = asyncHandler(async (req, res) => {
+  const requester = req.admin;
+
+  const isAdmin = ['admin'].includes(requester.role);
+  if(!isAdmin) {
+    throw new UnauthorizedError('you are not authorized to fetch total listings');
+  }
+  try{
+    const [totalListings, availableListings, unavailableListings] = await Promise.all([
+      Listing.countDocuments(),
+      Listing.countDocuments({status: 'available'}),
+      Listing.countDocuments({status: 'unavailable'})
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Listing statistics retrieved successfully',
+      data: {
+        totalListings,
+        availableListings,
+        unavailableListings
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching listing stats:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch listing statistics'
+    })
+  }
+});
+
+export const getTopViewedListingsByAdmin = asyncHandler(async (req, res) => {
+  const requester = req.admin;
+
+  const isAdmin = ['admin'].includes(requester.role);
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch top viewed listings");
+  }
+
+  try {
+    const topListings = await Listing.find({ status: "available" })
+      .sort({ views: -1 })   // highest views first
+      .limit(5)
+      .select("title description type photos videos price location geoLocation amenities listedBy likes views createdAt");
+
+    return res.status(200).json({
+      success: true,
+      message: "Top 5 most viewed available listings retrieved successfully",
+      data: topListings
+    });
+  } catch (err) {
+    console.error("Error fetching top viewed listings:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch top viewed listings"
+    });
+  }
+});
+
+
+export const getMonthlyNewListingsByAdmin = asyncHandler(async (req, res) => {
+  const requester = req.admin;
+
+  const isAdmin = ['admin'].includes(requester.role);
+  if (!isAdmin) {
+    throw new UnauthorizedError("You are not authorized to fetch monthly new listings");
+  }
+
+  try {
+    const monthlyStats = await Listing.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          newListings: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { "_id.year": -1, "_id.month": -1 } // latest months first
+      },
+      {
+        $limit: 12 // restrict to last 12 months
+      }
+    ]);
+
+    // Format response with readable month names
+    const formattedStats = monthlyStats.map(stat => {
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      return {
+        year: stat._id.year,
+        month: monthNames[stat._id.month - 1],
+        newListings: stat.newListings
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Monthly new listings retrieved successfully",
+      data: formattedStats
+    });
+  } catch (err) {
+    console.error("Error fetching monthly new listings:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch monthly new listings"
+    });
+  }
+});

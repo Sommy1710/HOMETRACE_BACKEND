@@ -1,7 +1,7 @@
 import {Router} from 'express';
 import { createNewListing, deleteSingleListing, fetchAllListings, fetchListing, fetchPublicListings, toggleLikeListing, updateListing, updateListingStatus,
     incrementListingViews, fetchPopularListings, fetchListingsBypropertyProvider, duplicateListing, fetchUnavailableListings,
-    reportListing, searchListings
+    reportListing, searchListings, getTotalListingsByProvider, getTopThreeMostViewedListingsForMonth, getTopTrendingListings, getHotLocations, getPopularPropertyTypes
  } from './listing.controller.js';
 import {uploadListingMedia} from '../../lib/upload.js';
 import propertyProviderMiddleware from '../../app/middleware/propertyProvider.middleware.js';
@@ -23,6 +23,11 @@ router.post('/duplicate/:id', propertyProviderMiddleware, duplicateListing);
 router.get('/unavailable-listings', propertyProviderMiddleware, fetchUnavailableListings);
 router.post('/report-listing/:id', dualAuthMiddleware, reportListing);
 router.get('/search', searchListings);
+router.get('/total-listing/:propertyProviderId', propertyProviderMiddleware, getTotalListingsByProvider);
+router.get('/top-three-most-viewed/:propertyProviderId', propertyProviderMiddleware, getTopThreeMostViewedListingsForMonth);
+router.get('/trending', getTopTrendingListings);
+router.get('/hot-locations', getHotLocations);
+router.get('/popular-property-types', getPopularPropertyTypes);
 
 export const listingRouter = router;
 

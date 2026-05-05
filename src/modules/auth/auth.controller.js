@@ -15,6 +15,7 @@ import { UnauthorizedError, NotFoundError, UnauthenticatedError } from '../../li
 import * as listingService from '../listing/listing.service.js';
 import { Listing } from '../listing/listing.schema.js';
 import crypto from 'crypto';
+import { ProfileView } from '../propertyProvider/propertyProvider.schema.js';
 
 
 
@@ -492,6 +493,7 @@ export const fetchMyFavourites = asyncHandler(async (req, res) => {
   });
 });
 
+
 export const getProfile = asyncHandler(async (req, res) => {
   const { id } = req.params; 
 
@@ -524,8 +526,41 @@ export const getProfile = asyncHandler(async (req, res) => {
   // If not a User, try PropertyProvider
   profile = await PropertyProvider.findById(id).select("username country bio profilePhoto role followers");
   if (profile) {
-    // fetch all listings created by this provider
-    const listings = await Listing.find({ author: id }).select("title description type price location amenities photos videos status likes views");
+    const listings = await Listing.find({ author: id }).select(
+      "title description type price location amenities photos videos status likes views"
+    );
+
+    // --- LOG PROFILE VIEW ---
+    let viewerId = null;
+    let viewerModel = null;
+    let isFollower = false;
+
+    if (req.user?._id) {
+      viewerId = req.user._id;
+      viewerModel = "User";
+      isFollower = profile.followers.some(
+        f => f.followerId.toString() === viewerId.toString() && f.followerModel === "User"
+      );
+    } else if (req.propertyProvider?.id) {
+      // ✅ Skip logging if provider is viewing their own profile
+      if (req.propertyProvider.id.toString() !== id.toString()) {
+        viewerId = req.propertyProvider.id;
+        viewerModel = "PropertyProvider";
+        isFollower = profile.followers.some(
+          f => f.followerId.toString() === viewerId.toString() && f.followerModel === "PropertyProvider"
+        );
+      }
+    }
+
+    if (viewerId && viewerModel) {
+      await ProfileView.create({
+        providerId: profile._id,
+        viewerId,
+        viewerModel,
+        isFollower
+      });
+    }
+    // --- END LOGGING ---
 
     profileData = {
       username: profile.username,
@@ -534,7 +569,7 @@ export const getProfile = asyncHandler(async (req, res) => {
       profilePhoto: profile.profilePhoto,
       role: profile.role,
       followers: profile.followers,
-      listings: listings, // include listings here
+      listings: listings,
     };
 
     return res.status(200).json({
@@ -544,9 +579,11 @@ export const getProfile = asyncHandler(async (req, res) => {
     });
   }
 
-  // If neither found
   throw new NotFoundError("Profile not found");
 });
+
+
+
 
 export const searchByUsername = asyncHandler(async (req, res) => {
   const { username, page = 1, limit = 10 } = req.query;

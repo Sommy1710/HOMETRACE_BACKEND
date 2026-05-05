@@ -395,3 +395,267 @@
  *       200:
  *         description: Property provider ban status updated successfully
  */
+
+
+
+
+/**
+ * @swagger
+ * /api/admin/listing-stats:
+ *   get:
+ *     summary: Get overall listing statistics
+ *     description: >
+ *       This endpoint allows an admin to retrieve statistics about all listings
+ *       in the system, including total listings, available listings, and unavailable listings.
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Listing statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Listing statistics retrieved successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalListings:
+ *                       type: integer
+ *                       example: 120
+ *                     availableListings:
+ *                       type: integer
+ *                       example: 95
+ *                     unavailableListings:
+ *                       type: integer
+ *                       example: 25
+ *
+ *       401:
+ *         description: Unauthorized - Admin not authenticated or invalid role
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: you are not authorized to fetch total listings
+ *
+ *       500:
+ *         description: Failed to fetch listing statistics due to server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Failed to fetch listing statistics
+ */
+
+
+/**
+ * @swagger
+ * /api/admin/top-viewed-listings:
+ *   get:
+ *     summary: Get top 5 most viewed available listings
+ *     description: >
+ *       Retrieves the top 5 listings with the highest number of views.
+ *       Only listings with "available" status are included.
+ *       Results are sorted in descending order based on view count.
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Top viewed listings retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Top 5 most viewed available listings retrieved successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: 64f123abc456def789012345
+ *                       title:
+ *                         type: string
+ *                         example: Luxury 3 Bedroom Apartment
+ *                       description:
+ *                         type: string
+ *                         example: Spacious apartment with modern amenities
+ *                       type:
+ *                         type: string
+ *                         example: 3 Bedroom Flat
+ *                       photos:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         example: ["https://image-url.com/photo1.jpg"]
+ *                       videos:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         example: ["https://video-url.com/video1.mp4"]
+ *                       price:
+ *                         type: number
+ *                         example: 1500000
+ *                       location:
+ *                         type: string
+ *                         example: Lagos, Nigeria
+ *                       geoLocation:
+ *                         type: object
+ *                         properties:
+ *                           type:
+ *                             type: string
+ *                             example: Point
+ *                           coordinates:
+ *                             type: array
+ *                             items:
+ *                               type: number
+ *                             example: [3.3792, 6.5244]
+ *                       amenities:
+ *                         type: string
+ *                         example: Pool, Gym, Parking
+ *                       listedBy:
+ *                         type: string
+ *                         example: 64f123abc456def789012999
+ *                       likes:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             userId:
+ *                               type: string
+ *                             userType:
+ *                               type: string
+ *                               example: user
+ *                       views:
+ *                         type: number
+ *                         example: 320
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: 2026-05-01T12:00:00.000Z
+ *
+ *       401:
+ *         description: Unauthorized - Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: You are not authorized to fetch top viewed listings
+ *
+ *       500:
+ *         description: Failed to fetch top viewed listings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Failed to fetch top viewed listings
+ */
+
+
+/**
+ * @swagger
+ * /api/admin/monthly-new-listings:
+ *   get:
+ *     summary: Get monthly new listings statistics
+ *     description: >
+ *       Retrieves the number of new listings created each month.
+ *       Returns data for the last 12 months, sorted from most recent to oldest.
+ *     tags: [Admin]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Monthly new listings retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Monthly new listings retrieved successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       year:
+ *                         type: number
+ *                         example: 2026
+ *                       month:
+ *                         type: string
+ *                         example: May
+ *                       newListings:
+ *                         type: number
+ *                         example: 42
+ *
+ *       401:
+ *         description: Unauthorized - Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: You are not authorized to fetch monthly new listings
+ *
+ *       500:
+ *         description: Failed to fetch monthly new listings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Failed to fetch monthly new listings
+ */

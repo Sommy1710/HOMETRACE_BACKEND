@@ -308,3 +308,142 @@
  *       200:
  *         description: Follow/unfollow action completed
  */
+
+
+
+
+/**
+ * @swagger
+ * /api/propertyProvider/analytics/{propertyProviderId}:
+ *   get:
+ *     summary: Get profile view analytics (last 30 days)
+ *     description: >
+ *       Returns analytics for a property provider's profile views within the last 30 days.
+ *       It includes total views, follower vs non-follower views, and percentage breakdown.
+ *       
+ *       ⚠️ Only the authenticated property provider can access their own analytics.
+ *
+ *     tags: [PropertyProvider]
+ *
+ *     security:
+ *       - cookieAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: propertyProviderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the property provider
+ *
+ *     responses:
+ *       200:
+ *         description: Analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ProfileViewAnalytics'
+ *
+ *       401:
+ *         description: Unauthorized - Not logged in or invalid token
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Unauthorized
+ *
+ *       403:
+ *         description: Forbidden - Trying to access another provider's analytics
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: You are not authorized to view analytics for another provider.
+ *
+ *       404:
+ *         description: Property provider not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Property provider not found
+ *
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Internal server error
+ */
+
+
+
+
+/**
+ * @swagger
+ * /api/propertyProvider/accounts-reached/{propertyProviderId}:
+ *   get:
+ *     summary: Get total accounts reached (unique profile viewers) in the last 30 days
+ *     description: |
+ *       Returns the number of unique accounts that have viewed a property provider's profile 
+ *       within the last 30 days.
+ *       
+ *       ⚠️ Authorization Rules:
+ *       - Only authenticated property providers can access this endpoint
+ *       - A provider can ONLY access their own analytics
+ *
+ *     tags: [PropertyProvider]
+ *      
+ *
+ *     security:
+ *       - cookieAuth: []
+ *
+ *     parameters:
+ *       - in: path
+ *         name: propertyProviderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the property provider whose analytics is being requested
+ *
+ *     responses:
+ *       200:
+ *         description: Accounts reached fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accountsReached:
+ *                       type: number
+ *                       example: 125
+ *                     period:
+ *                       type: string
+ *                       example: last 30 days
+ *
+ *       401:
+ *         description: Unauthorized - User not authenticated or trying to access another provider's data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: you must be logged in as a property provider to view accounts reached
+ *
+ *       404:
+ *         description: Property provider not found (if you later add this validation)
+ *
+ *       500:
+ *         description: Internal server error
+ */

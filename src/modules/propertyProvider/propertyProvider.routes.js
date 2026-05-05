@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import {createPropertyProviderAccount, verifyEmailOTP, authenticatePropertyProvider, deletePropertyProviderAccount, getAuthenticatedPropertyProvider,
-     logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword,  toggleFollowPropertyProvider,
+     logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword,  toggleFollowPropertyProvider, getProfileViewAnalytics, getAccountsReached
       } from './propertyProvider.controller.js';
 import upload from '../../lib/upload.js';
 import propertyProviderMiddleware from '../../app/middleware/propertyProvider.middleware.js';
@@ -19,6 +19,8 @@ router.post('/reset-password', resetPassword);
 router.post('/forgot-password', forgotPassword);
 router.post("/logout", logoutPropertyProvider);
 router.post("/follow-property-providers/:propertyProviderId", dualAuthMiddleware, toggleFollowPropertyProvider);
+router.get("/analytics/:propertyProviderId", propertyProviderMiddleware, getProfileViewAnalytics);
+router.get("/accounts-reached/:propertyProviderId", propertyProviderMiddleware, getAccountsReached);
 
 
 export const propertyProviderRouter = router;

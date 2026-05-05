@@ -88,4 +88,12 @@ PropertyProviderSchema.pre('save', async function(next)
  
 export const PropertyProvider = model('PropertyProvider', PropertyProviderSchema);
 
+const ProfileViewSchema = new Schema({
+  providerId: { type: mongoose.Schema.Types.ObjectId, ref: "PropertyProvider", required: true },
+  viewerId: { type: mongoose.Schema.Types.ObjectId, refPath: "viewerModel" },
+  viewerModel: { type: String, enum: ["User", "PropertyProvider"] },
+  isFollower: { type: Boolean, default: false },
+  viewedAt: { type: Date, default: Date.now }
+});
 
+export const ProfileView = model("ProfileView", ProfileViewSchema);
