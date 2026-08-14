@@ -4,13 +4,19 @@ import {User} from './user.schema.js';
 export const createUser = async(payload) =>
 {
     //check if a record already exists with the user details
-    const user = await User.findOne({
-        $or: [
-            {email: payload.email},
-            {username: payload.username}
-        ]
+    const existingEmail = await User.findOne({
+        email: payload.email,
     });
-    if (user) throw new ConflictError('a user with the provided details already exixts');
+    if (existingEmail) {
+        throw new ConflictError("A user with the provided email already exists, please use a different email.");
+    }
+    const existingUsername = await User.findOne({
+        username: payload.username,
+    });
+
+    if (existingUsername) {
+        throw new ConflictError("A user with the provided username already exists, please use a different username.");
+    }
     return await User.create(payload);
 };
 

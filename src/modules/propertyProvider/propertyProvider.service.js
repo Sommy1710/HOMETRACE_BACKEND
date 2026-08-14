@@ -4,13 +4,18 @@ import {PropertyProvider} from './propertyProvider.schema.js';
 export const createPropertyProvider = async(payload) =>
 {
     //check if a record already exists with the user details
-    const propertyProvider = await PropertyProvider.findOne({
-        $or: [
-            {email: payload.email},
-            {username: payload.username}
-        ]
+    const existingEmail = await PropertyProvider.findOne({
+        email: payload.email,
     });
-    if (propertyProvider) throw new ConflictError('a property provider with the provided details already exixts');
+    if (existingEmail) {
+        throw new ConflictError("A property provider with the provided email already exists, please try again with a different email.");
+    }
+    const existingUsername = await PropertyProvider.findOne({
+        username: payload.username,
+    });
+    if (existingUsername) {
+        throw new ConflictError("A property provider with the provided username already exists, please try again with a different username.");
+    }
     return await PropertyProvider.create(payload);
 };
 
