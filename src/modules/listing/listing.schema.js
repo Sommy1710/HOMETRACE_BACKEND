@@ -101,11 +101,14 @@ const ListingSchema = new Schema({
     default: 'available'
   },
   listedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'PropertyProvider', required: true },
-  likes: [
-  {
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    userType: { type: String, enum: ['user', 'propertyProvider'], required: true }
-  }],
+  likeCount: {
+    type: Number,
+    default: 0,
+  },
+  commentCount: {
+    type: Number,
+    default: 0,
+  },
   views: {
     type: Number,
     default: 0
@@ -123,6 +126,46 @@ ListingSchema.index({
 });
 
 export const Listing = model('Listing', ListingSchema);
+
+const ListingLikeSchema = new Schema(
+  {
+    listing: {
+      type: Schema.Types.ObjectId,
+      ref: "Listing",
+      required: true,
+    },
+
+    user: {
+      type: Schema.Types.ObjectId,
+      refPath: "userModel",
+      required: true,
+    },
+
+    userModel: {
+      type: String,
+      enum: ["User", "PropertyProvider"],
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Prevent duplicate likes
+ListingLikeSchema.index(
+  {
+    listing: 1,
+    user: 1,
+    userModel: 1,
+  },
+  {
+    unique: true,
+  }
+);
+
+export const ListingLike = model("ListingLike", ListingLikeSchema);
+
 
 const ReportListingSchema = new Schema(
   {

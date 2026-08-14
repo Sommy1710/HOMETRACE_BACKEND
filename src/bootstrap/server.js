@@ -18,6 +18,11 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '../docs/swagger.js';
 import * as Sentry from '@sentry/node';
 import { listingRouter } from './../modules/listing/listing.routes.js';
+import {favouritesRouter} from '../modules/favourites/favourites.routes.js';
+import { listingCommentRouter } from '../modules/listingComment/listingComment.routes.js';
+import {listingCommentLikeRouter} from '../modules/listingCommentLike/listingCommentLike.routes.js';
+import {listingCommentReplyRouter} from '../modules/listingcommentReply/listingCommentReply.routes.js';
+import {listingCommentReplyLikeRouter} from '../modules/listingCommentReplyLike/listingCommentReplyLike.routes.js';
 import {Server} from 'socket.io';
 
 
@@ -26,7 +31,7 @@ import {Server} from 'socket.io';
 const app = express();
 const server = createServer(app);
 
-const io = new Server(server, {
+export const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
@@ -60,6 +65,11 @@ app.use('/api/auth', authRouter);
 app.use('/api/propertyProvider', propertyProviderRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/listings', listingRouter);
+app.use('/api/favourites', favouritesRouter);
+app.use('/api/listingComment', listingCommentRouter);
+app.use('/api/listingCommentLike', listingCommentLikeRouter);
+app.use('/api/listingCommentReply', listingCommentReplyRouter);
+app.use('/api/listingCommentReplyLike', listingCommentReplyLikeRouter);
 app.use('/api/messages', messageRouter);
 app.use('/api/notifications', notificationsRouter);
 

@@ -57,6 +57,15 @@ const PropertyProviderSchema = new Schema({
   }
 ],
 
+    followersCount: {
+        type: Number,
+        default: 0
+    },
+
+    followingCount: {
+        type: Number,
+        default: 0
+    },
     role: {
         type: String,
         default: 'propertyProvider',
@@ -76,6 +85,12 @@ const PropertyProviderSchema = new Schema({
     banReason: String
 
 }, {timestamps: true});
+
+PropertyProviderSchema.index({
+    username: "text",
+    firstname: "text",
+    lastname: "text",
+});
 
 PropertyProviderSchema.pre('save', async function(next)
 {

@@ -12,9 +12,9 @@ router.post('/create-listing', propertyProviderMiddleware, uploadListingMedia, c
 router.get('/fetch-all-listings', propertyProviderMiddleware, fetchAllListings);
 router.get('/fetch-listing/:id', propertyProviderMiddleware, fetchListing);
 router.put('/update-listing/:id', propertyProviderMiddleware, updateListing)
-router.post("/like-listing/:id", dualAuthMiddleware, toggleLikeListing);
 router.delete('/delete-listing/:id', propertyProviderMiddleware, deleteSingleListing);
 router.get('/fetch-public-listings', fetchPublicListings);
+router.post('/like-listing/:id', dualAuthMiddleware, toggleLikeListing);
 router.put('/update-listing-status/:id', propertyProviderMiddleware, updateListingStatus );
 router.patch('/increment-listing-views/:id', incrementListingViews);
 router.get('/fetch-popular-listing', fetchPopularListings)

@@ -21,12 +21,6 @@ const UserSchema = new Schema ({
         type: String,
         default: 'Nigeria'
     },
-    favourites: [
-        {
-            listingId: {type: mongoose.Schema.Types.ObjectId, ref: "Listing"},
-            addedAt: {type: Date, default: Date.now}
-        }
-    ],
     profilePhoto: {type: String, default: ''},
     isEmailVerified: {type: Boolean, default: false},
     role: {
@@ -42,7 +36,15 @@ const UserSchema = new Schema ({
 
     isDeleted: {type: Boolean, default: false},
     deleteRequestedAt: Date,
+    followingCount: {
+        type: Number,
+        default: 0
+    },
 }, {timestamps: true});
+
+UserSchema.index({
+    username: "test",
+});
 
 UserSchema.pre('save', async function(next)
 {

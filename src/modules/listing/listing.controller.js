@@ -3,7 +3,7 @@ import {asyncHandler} from '../../lib/util.js';
 import {Validator} from '../../lib/validator.js';
 import { createListingRequest,updateListingRequest } from './create-listing.request.js';
 import {ValidationError} from '../../lib/error-definitions.js';
-import { Listing } from './listing.schema.js';
+import { ListingLike, Listing } from './listing.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import { NotFoundError, UnauthenticatedError, UnauthorizedError } from '../../lib/error-definitions.js';
 import { createNotification } from "../notifications/notification.service.js";
@@ -315,112 +315,6 @@ export const updateListing = asyncHandler(async (req, res) => {
   });
 });
 
-
-
-export const toggleLikeListing = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  
-    //IDENTIFY LIKER
-  let likerId = null;
-  let likerType = null;
-  let likerUsername = "Someone";
-
-  if (req.user?._id) {
-    //User
-    likerId = req.user._id;
-    likerType = "user";
-    likerUsername = req.user.username;
-
-    // If username not attached to req.user, fetch from DB
-    if (!likerUsername) {
-      const user = await User.findById(likerId).select("username");
-      likerUsername = user?.username || "Someone";
-    }
-
-  } else if (req.propertyProvider?._id) {
-    //PropertyProvider
-    likerId = req.propertyProvider._id;
-    likerType = "propertyProvider";
-    likerUsername = req.propertyProvider.username;
-
-    // If username not attached to req.propertyProvider, fetch from DB
-    if (!likerUsername) {
-      const provider = await PropertyProvider.findById(likerId).select("username");
-      likerUsername = provider?.username || "Someone";
-    }
-
-  } else {
-    throw new UnauthenticatedError("Not authenticated");
-  }
-
-  //FETCH LISTING
-  const listing = await listingService.getListing(id);
-  if (!listing) {
-    throw new NotFoundError("Listing not found");
-  }
-
-  //CHECK IF ALREADY LIKED
-  const alreadyLiked = listing.likes.find(
-    like =>
-      like.userId.toString() === likerId.toString() &&
-      like.userType === likerType
-  );
-
-  if (alreadyLiked) {
-    //UNLIKE
-    listing.likes = listing.likes.filter(
-      like =>
-        !(
-          like.userId.toString() === likerId.toString() &&
-          like.userType === likerType
-        )
-    );
-  } else {
-    //LIKE
-    listing.likes.push({
-      userId: likerId,
-      userType: likerType
-    });
-
-    //CREATE NOTIFICATION
-    const isOwner =
-      likerType === "propertyProvider" &&
-      listing.listedBy.toString() === likerId.toString();
-
-    if (!isOwner) {
-      await createNotification({
-        recipient: listing.listedBy,
-        recipientModel: "PropertyProvider",
-
-        sender: likerId,
-        senderModel: likerType === "user" ? "User" : "PropertyProvider",
-
-        type: "LISTING_LIKED",
-        entityId: listing._id,
-        entityModel: "Listing",
-
-        message: `${likerUsername} liked your listing`
-      });
-    }
-  }
-
-  await listing.save();
-
-  return res.status(200).json({
-    success: true,
-    message: alreadyLiked ? "Listing unliked" : "Listing liked",
-    data: {
-      likesCount: listing.likes.length,
-      liked: !alreadyLiked
-    }
-  });
-});
-
-
-
-
-
 export const fetchPublicListings = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 20;
@@ -490,6 +384,58 @@ export const updateListingStatus = asyncHandler(async (req, res) => {
     }
   });
 });
+
+export const toggleLikeListing = asyncHandler(async (req, res) => {
+  const {id} = req.params;
+
+  if (!req.user && !req.propertyProvider) {
+    throw new UnauthenticatedError("Authentication required");
+  }
+
+  //determine who is liking
+  let accountId;
+  let accountModel
+
+  if (req.user?.role === "propertyProvider") {
+    accountId = req.user.id;
+    accountModel = "PropertyProvider";
+  } else if (req.user) {
+    accountId = req.user.id;
+    accountModel = "User";
+  } else if (req.propertyProvider) {
+    accountId = req.propertyProvider.id;
+    accountModel = "PropertyProvider";
+  }
+
+  //find the post
+  const listing = await Listing.findById(id);
+
+  if (!listing) {
+    throw new NotfoundError("listing not found");
+  }
+
+  //check if already liked
+  const existingLike = await ListingLike.findOne({
+    listing: id,
+    user: accountId,
+    userModel: accountModel,
+  });
+
+  //unlike
+  if (existingLike) {
+    await ListingLike.deleteOne({_id: existingLike._id});
+
+    listing.likeCount = Math.max(listing.likeCount -1, 0);
+    await listing.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "listing unlikes successfully",
+      liked: false,
+      likeCount: listing.likeCount,
+    });
+  }
+})
 
 export const incrementListingViews = asyncHandler(async (req, res) => {
   const { id } = req.params;
