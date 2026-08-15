@@ -38,25 +38,7 @@ const PropertyProviderSchema = new Schema({
     profilePhoto: {type: String, default: ''},
     isEmailVerified: {type: Boolean, default: false},
     isVerified: {type: Boolean, default: false},
-    followers: [
-  {
-    followerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-      refPath: "followers.followerModel"
-    },
-    followerModel: {
-      type: String,
-      enum: ["User", "PropertyProvider"],
-      required: true
-    },
-    followedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }
-],
-
+    
     followersCount: {
         type: Number,
         default: 0
@@ -112,3 +94,54 @@ const ProfileViewSchema = new Schema({
 });
 
 export const ProfileView = model("ProfileView", ProfileViewSchema);
+
+const FollowSchema = new Schema(
+{
+    follower: {
+        type: Schema.Types.ObjectId,
+        refPath: "followerModel",
+        required: true
+    },
+
+    followerModel: {
+        type: String,
+        enum: ["User", "PropertyProvider"],
+        required: true
+    },
+
+    following: {
+        type: Schema.Types.ObjectId,
+        refPath: "followingModel",
+        required: true
+    },
+
+    followingModel: {
+        type: String,
+        enum: ["User", "PropertyProvider"],
+        required: true
+    }
+},
+{
+    timestamps: true
+});
+
+FollowSchema.index({
+    follower: 1,
+    followerModel: 1
+});
+
+FollowSchema.index({
+    following: 1,
+    followingModel: 1
+});
+
+FollowSchema.index({
+    follower: 1,
+    followerModel: 1,
+    following: 1,
+    followingModel: 1
+}, {
+    unique: true
+});
+
+export const Follow = model('Follow', FollowSchema);

@@ -4,7 +4,7 @@ import {Validator} from '../../lib/validator.js';
 import {CreatePropertyProviderRequest, UpdatePropertyProviderRequest} from './create-propertyProvider.request.js';
 import { AuthPropertyProviderRequest } from './auth-propertyProvider.request.js';
 import { ValidationError, NotFoundError } from '../../lib/error-definitions.js';
-import {PropertyProvider} from './propertyProvider.schema.js';
+import {PropertyProvider, Follow} from './propertyProvider.schema.js';
 import {v2 as cloudinary} from 'cloudinary';
 import {sendEmail} from '../../lib/emailService.js';
 import { deletePropertyProviderById } from './propertyProvider.service.js';
@@ -407,330 +407,334 @@ export const resetPassword = asyncHandler(async (req, res) => {
   return res.status(200).json({ message: 'Password reset successfully.' });
 });
 
+export const toggleFollow = asyncHandler(async (req, res) => {
+    const { id } = req.params;
 
-/*export const toggleFollowPropertyProvider = asyncHandler(async (req, res) => {
-  const { propertyProviderId } = req.params;
+    // Ensure authenticated
+    if (!req.user && !req.propertyProvider) {
+        throw new UnauthenticatedError("Authentication required");
+    }
 
-  // Identify follower (PropertyProvider first, then User)
-  let followerId, followerModel, followerUsername = "Someone";
+    // Determine who is performing the follow
+    let followerId;
+    let followerModel;
 
-  if (req.propertyProvider?.id || req.propertyProvider?._id) {
-    followerId = req.propertyProvider._id || req.propertyProvider.id;
-    followerModel = "PropertyProvider";
-    followerUsername = req.propertyProvider.username || 
-      (await PropertyProvider.findById(followerId).select("username"))?.username || "Someone";
-  } else if (req.user?.id || req.user?._id) {
-    followerId = req.user._id || req.user.id;
-    followerModel = "User";
-    followerUsername = req.user.username || 
-      (await User.findById(followerId).select("username"))?.username || "Someone";
-  } else {
-    throw new UnauthorizedError("Not authenticated");
-  }
+    if (req.user?.role === "propertyProvider") {
+        followerId = req.user.id;
+        followerModel = "PropertyProvider";
+    } else if (req.user) {
+        followerId = req.user.id;
+        followerModel = "User";
+    } else {
+        followerId = req.spotOwner.id;
+        followerModel = "PropertyProvider";
+    }
 
-  // Prevent self-follow
-  if (followerModel === "PropertyProvider" && followerId.toString() === propertyProviderId) {
-    throw new ValidationError("You cannot follow yourself");
-  }
+    // Find account being followed
+    let followingAccount =
+        await User.findById(id).select("_id followersCount followingCount");
 
-  // Fetch target provider
-  const provider = await PropertyProvider.findById(propertyProviderId);
-  if (!provider) throw new ValidationError("Property provider not found");
+    let followingModel = "User";
 
-  // Check follow state
-  const alreadyFollowing = provider.followers.some(
-    f => f.followerId.toString() === followerId.toString() && f.followerModel === followerModel
-  );
+    if (!followingAccount) {
+        followingAccount =
+            await PropertyProvider.findById(id).select("_id followersCount followingCount");
 
-  if (alreadyFollowing) {
-    // Unfollow
-    provider.followers = provider.followers.filter(
-      f => !(f.followerId.toString() === followerId.toString() && f.followerModel === followerModel)
-    );
-  } else {
-    // Follow
-    provider.followers.push({ followerId, followerModel, followedAt: new Date() });
+        followingModel = "PropertyProvider";
+    }
 
-    // Create notification
-    await createNotification({
-      recipient: provider._id,
-      recipientModel: "PropertyProvider",
-      sender: followerId,
-      senderModel: followerModel,
-      type: "NEW_FOLLOWER",
-      entityId: provider._id,
-      entityModel: "PropertyProvider",
-      message: `${followerUsername} started following you`
+    if (!followingAccount) {
+        throw new NotFoundError("Account not found");
+    }
+
+    // Prevent self-follow
+    if (
+        followerId.toString() === followingAccount._id.toString() &&
+        followerModel === followingModel
+    ) {
+        throw new ValidationError("You cannot follow yourself.");
+    }
+
+    // Check existing relationship
+    const existingFollow = await Follow.findOne({
+        follower: followerId,
+        followerModel,
+        following: followingAccount._id,
+        followingModel,
     });
-  }
 
-  await provider.save();
-
-  res.status(200).json({
-    success: true,
-    message: alreadyFollowing ? "Unfollowed successfully" : "Followed successfully",
-    data: {
-      following: !alreadyFollowing,
-      followersCount: provider.followers.length
-    }
-  });
-});*/
-/*export const toggleFollowPropertyProvider = asyncHandler(async (req, res) => {
-  const { propertyProviderId } = req.params;
-
-  // Identify follower (PropertyProvider first, then User)
-  let followerId, followerModel, followerUsername = "Someone";
-
-  if (req.propertyProvider?.id || req.propertyProvider?._id) {
-    followerId = req.propertyProvider._id || req.propertyProvider.id;
-    followerModel = "PropertyProvider";
-    followerUsername = req.propertyProvider.username || 
-      (await PropertyProvider.findById(followerId).select("username"))?.username || "Someone";
-  } else if (req.user?.id || req.user?._id) {
-    followerId = req.user._id || req.user.id;
-    followerModel = "User";
-    followerUsername = req.user.username || 
-      (await User.findById(followerId).select("username"))?.username || "Someone";
-  } else {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  // Prevent self-follow
-  if (followerModel === "PropertyProvider" && followerId.toString() === propertyProviderId) {
-    throw new ValidationError("You cannot follow yourself");
-  }
-
-  // Fetch target provider
-  const provider = await PropertyProvider.findById(propertyProviderId);
-  if (!provider) throw new ValidationError("Property provider not found");
-
-  // Check follow state
-  const alreadyFollowing = provider.followers.some(
-    f => f.followerId.toString() === followerId.toString() && f.followerModel === followerModel
-  );
-
-  if (alreadyFollowing) {
-    // UNFOLLOW: remove from target's followers
-    provider.followers = provider.followers.filter(
-      f => !(f.followerId.toString() === followerId.toString() && f.followerModel === followerModel)
-    );
-
-    // If actor is a PropertyProvider, also remove from their following
-    if (followerModel === "PropertyProvider") {
-      const actor = await PropertyProvider.findById(followerId);
-      actor.following = actor.following.filter(
-        f => f.followingId.toString() !== propertyProviderId
-      );
-      await actor.save();
-    }
-  } else {
-    // FOLLOW: add to target's followers
-    provider.followers.push({ followerId, followerModel, followedAt: new Date() });
-
-    // If actor is a PropertyProvider, also add to their following
-    if (followerModel === "PropertyProvider") {
-      const actor = await PropertyProvider.findById(followerId);
-      actor.following.push({ followingId: provider._id, followingModel: "PropertyProvider", followedAt: new Date() });
-      await actor.save();
-    }
-
-    // Create notification
-    await createNotification({
-      recipient: provider._id,
-      recipientModel: "PropertyProvider",
-      sender: followerId,
-      senderModel: followerModel,
-      type: "NEW_FOLLOWER",
-      entityId: provider._id,
-      entityModel: "PropertyProvider",
-      message: `${followerUsername} started following you`
-    });
-  }
-
-  await provider.save();
-
-  res.status(200).json({
-    success: true,
-    message: alreadyFollowing ? "Unfollowed successfully" : "Followed successfully",
-    data: {
-      following: !alreadyFollowing,
-      followersCount: provider.followers.length
-    }
-  });
-});*/
-
-/*export const toggleFollowPropertyProvider = asyncHandler(async (req, res) => {
-  const { propertyProviderId } = req.params;
-
-  let followerId, followerModel, followerUsername = "Someone";
-  let actor;
-
-  // Force propertyProvider branch first
-  if (req.propertyProvider && (req.propertyProvider._id || req.propertyProvider.id)) {
-    followerId = req.propertyProvider._id?.toString() || req.propertyProvider.id?.toString();
-    followerModel = "PropertyProvider";
-
-    actor = await PropertyProvider.findById(followerId);
-    if (!actor) {
-      return res.status(404).json({ success: false, message: "Follower PropertyProvider not found" });
-    }
-    followerUsername = req.propertyProvider.username || actor.username || "Someone";
-
-  } else if (req.user && (req.user._id || req.user.id)) {
-    followerId = req.user._id?.toString() || req.user.id?.toString();
-    followerModel = "User";
-
-    actor = await User.findById(followerId);
-    if (!actor) {
-      return res.status(404).json({ success: false, message: "Follower User not found" });
-    }
-    followerUsername = req.user.username || actor.username || "Someone";
-
-  } else {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  if (followerModel === "PropertyProvider" && followerId === propertyProviderId) {
-    throw new ValidationError("You cannot follow yourself");
-  }
-
-  const provider = await PropertyProvider.findById(propertyProviderId);
-  if (!provider) throw new ValidationError("Property provider not found");
-
-  const alreadyFollowing = provider.followers.some(
-    f => f.followerId.toString() === followerId && f.followerModel === followerModel
-  );
-
-  if (alreadyFollowing) {
-    provider.followers = provider.followers.filter(
-      f => !(f.followerId.toString() === followerId && f.followerModel === followerModel)
-    );
-
-    actor.following = actor.following.filter(f => f.followingId.toString() !== propertyProviderId);
-    await actor.save();
-
-  } else {
-    provider.followers.push({ followerId, followerModel, followedAt: new Date() });
-
-    actor.following.push({ followingId: provider._id, followingModel: "PropertyProvider", followedAt: new Date() });
-    await actor.save();
-
-    await createNotification({
-      recipient: provider._id,
-      recipientModel: "PropertyProvider",
-      sender: followerId,
-      senderModel: followerModel,
-      type: "NEW_FOLLOWER",
-      entityId: provider._id,
-      entityModel: "PropertyProvider",
-      message: `${followerUsername} started following you`
-    });
-  }
-
-  await provider.save();
-
-  res.status(200).json({
-    success: true,
-    message: alreadyFollowing ? "Unfollowed successfully" : "Followed successfully",
-    data: {
-      following: !alreadyFollowing,
-      followersCount: provider.followers.length
-    }
-  });
-});*/
-
-
-
-export const toggleFollowPropertyProvider = asyncHandler(async (req, res) => {
-  const { propertyProviderId } = req.params;
-
-  let followerId, followerModel, followerUsername = "Someone";
-  let actor;
-
-  // Case 1: propertyProvider explicitly set
-  if (req.propertyProvider?.id || req.propertyProvider?._id) {
-    followerId = req.propertyProvider._id?.toString() || req.propertyProvider.id?.toString();
-    followerModel = "PropertyProvider";
-    actor = await PropertyProvider.findById(followerId);
-    if (!actor) return res.status(404).json({ success: false, message: "Follower PropertyProvider not found" });
-    followerUsername = req.propertyProvider.username || actor.username || "Someone";
-
-  // Case 2: user payload but role is propertyProvider
-  } else if (req.user?.role === "propertyProvider") {
-    followerId = req.user._id?.toString() || req.user.id?.toString();
-    followerModel = "PropertyProvider";
-    actor = await PropertyProvider.findById(followerId);
-    if (!actor) return res.status(404).json({ success: false, message: "Follower PropertyProvider not found" });
-    followerUsername = req.user.username || actor.username || "Someone";
-
-  // Case 3: normal user
-  } else if (req.user?.id || req.user?._id) {
-    followerId = req.user._id?.toString() || req.user.id?.toString();
-    followerModel = "User";
-    actor = await User.findById(followerId);
-    if (!actor) return res.status(404).json({ success: false, message: "Follower User not found" });
-    followerUsername = req.user.username || actor.username || "Someone";
-
-  } else {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  // Prevent self-follow
-  if (followerModel === "PropertyProvider" && followerId === propertyProviderId) {
-    throw new ValidationError("You cannot follow yourself");
-  }
-
-  // Fetch target provider
-  const provider = await PropertyProvider.findById(propertyProviderId);
-  if (!provider) throw new ValidationError("Property provider not found");
-
-  // Check follow state
-  const alreadyFollowing = provider.followers.some(
-    f => f.followerId.toString() === followerId && f.followerModel === followerModel
-  );
-
-  if (alreadyFollowing) {
+    // ======================
     // UNFOLLOW
-    provider.followers = provider.followers.filter(
-      f => !(f.followerId.toString() === followerId && f.followerModel === followerModel)
-    );
-    actor.following = actor.following.filter(f => f.followingId.toString() !== propertyProviderId);
-  } else {
-    // FOLLOW
-    provider.followers.push({ followerId, followerModel, followedAt: new Date() });
-    actor.following.push({
-      followingId: provider._id,
-      followingModel: "PropertyProvider",
-      followedAt: new Date()
-    });
+    // ======================
+    if (existingFollow) {
+        await Follow.deleteOne({ _id: existingFollow._id });
 
-    await createNotification({
-      recipient: provider._id,
-      recipientModel: "PropertyProvider",
-      sender: followerId,
-      senderModel: followerModel,
-      type: "NEW_FOLLOWER",
-      entityId: provider._id,
-      entityModel: "PropertyProvider",
-      message: `${followerUsername} started following you`
-    });
-  }
+        await Promise.all([
+            followingModel === "User"
+                ? User.findByIdAndUpdate(
+                      followingAccount._id,
+                      { $inc: { followersCount: -1 } }
+                  )
+                : PropertyProvider.findByIdAndUpdate(
+                      followingAccount._id,
+                      { $inc: { followersCount: -1 } }
+                  ),
 
-  await provider.save();
-  await actor.save();
+            followerModel === "User"
+                ? User.findByIdAndUpdate(
+                      followerId,
+                      { $inc: { followingCount: -1 } }
+                  )
+                : PropertyProvider.findByIdAndUpdate(
+                      followerId,
+                      { $inc: { followingCount: -1 } }
+                  ),
+        ]);
 
-  res.status(200).json({
-    success: true,
-    message: alreadyFollowing ? "Unfollowed successfully" : "Followed successfully",
-    data: {
-      following: !alreadyFollowing,
-      followersCount: provider.followers.length
+        return res.status(200).json({
+            success: true,
+            message: "Account unfollowed successfully.",
+            following: false,
+        });
     }
-  });
+
+    // ======================
+    // FOLLOW
+    // ======================
+    await Follow.create({
+        follower: followerId,
+        followerModel,
+        following: followingAccount._id,
+        followingModel,
+    });
+
+    await Promise.all([
+        followingModel === "User"
+            ? User.findByIdAndUpdate(
+                  followingAccount._id,
+                  { $inc: { followersCount: 1 } }
+              )
+            : PropertyProvider.findByIdAndUpdate(
+                  followingAccount._id,
+                  { $inc: { followersCount: 1 } }
+              ),
+
+        followerModel === "User"
+            ? User.findByIdAndUpdate(
+                  followerId,
+                  { $inc: { followingCount: 1 } }
+              )
+            : PropertyProvider.findByIdAndUpdate(
+                  followerId,
+                  { $inc: { followingCount: 1 } }
+              ),
+    ]);
+
+    return res.status(200).json({
+        success: true,
+        message: "Account followed successfully.",
+        following: true,
+    });
 });
 
 
 
+const resolveAccount = async (id) => {
+  let account = await User.findById(id)
+    .select("_id username firstname lastname profilePhoto bio role followersCount followingCount")
+    .lean();
+
+  if (account) {
+    return {
+      account,
+      accountModel: "User",
+    };
+  }
+
+  account = await PropertyProvider.findById(id)
+    .select("_id username firstname lastname profilePhoto bio role followersCount followingCount")
+    .lean();
+
+  if (account) {
+    return {
+      account,
+      accountModel: "PropertyProvider",
+    };
+  }
+
+  return null;
+};
+
+export const getFollowers = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Resolve the account being viewed
+  const target = await resolveAccount(id);
+
+  if (!target) {
+    throw new NotFoundError("Account not found.");
+  }
+
+  const { account, accountModel } = target;
+
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const filter = {
+    following: account._id,
+    followingModel: accountModel,
+  };
+
+  const [follows, total] = await Promise.all([
+    Follow.find(filter)
+      .populate({
+        path: "follower",
+        select: `
+          _id
+          username
+          firstname
+          lastname
+          profilePhoto
+          bio
+          role
+          followersCount
+          followingCount
+        `,
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    Follow.countDocuments(filter),
+  ]);
+
+  const followers = follows
+    .filter((follow) => follow.follower)
+    .map((follow) => ({
+      followId: follow._id,
+      followedAt: follow.createdAt,
+      account: {
+        ...follow.follower,
+      },
+    }));
+
+  return res.status(200).json({
+    success: true,
+    message: "Followers retrieved successfully.",
+    data: {
+      account: {
+        _id: account._id,
+        username: account.username,
+        firstname: account.firstname,
+        lastname: account.lastname,
+        profilePhoto: account.profilePhoto,
+        bio: account.bio,
+        role: account.role,
+        followersCount: account.followersCount,
+        followingCount: account.followingCount,
+      },
+
+      followers,
+
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    },
+  });
+});
+
+
+export const getFollowing = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Resolve the account
+  const target = await resolveAccount(id);
+
+  if (!target) {
+    throw new NotFoundError("Account not found.");
+  }
+
+  const { account, accountModel } = target;
+
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const filter = {
+    follower: account._id,
+    followerModel: accountModel,
+  };
+
+  const [follows, total] = await Promise.all([
+    Follow.find(filter)
+      .populate({
+        path: "following",
+        select: `
+          _id
+          username
+          firstname
+          lastname
+          profilePhoto
+          bio
+          role
+          followersCount
+          followingCount
+        `,
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    Follow.countDocuments(filter),
+  ]);
+
+  const following = follows
+    .filter((follow) => follow.following)
+    .map((follow) => ({
+      followId: follow._id,
+      followedAt: follow.createdAt,
+      account: {
+        ...follow.following,
+      },
+    }));
+
+  return res.status(200).json({
+    success: true,
+    message: "Following retrieved successfully.",
+    data: {
+      account: {
+        _id: account._id,
+        username: account.username,
+        firstname: account.firstname,
+        lastname: account.lastname,
+        profilePhoto: account.profilePhoto,
+        bio: account.bio,
+        role: account.role,
+        followersCount: account.followersCount,
+        followingCount: account.followingCount,
+      },
+
+      following,
+
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    },
+  });
+});
 
 export const logProfileView = asyncHandler(async (req, res) => {
   const { propertyProviderId } = req.params;
@@ -846,202 +850,3 @@ export const getAccountsReached = asyncHandler(async (req, res) => {
     }
   });
 });
-
-
-export const getFollowersOfPropertyProvider = asyncHandler(async (req, res) => {
-  const { propertyProviderId } = req.params;
-
-  // Ensure requester is authenticated
-  if (!req.user && !req.propertyProvider) {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  const provider = await PropertyProvider.findById(propertyProviderId);
-  if (!provider) {
-    return res.status(404).json({ message: "Property provider not found." });
-  }
-
-  // Followers are stored as { followerId, followerModel }
-  const followers = await Promise.all(
-    provider.followers.map(async (f) => {
-      if (f.followerModel === "User") {
-        const user = await User.findById(f.followerId).select("username profilePhoto");
-        return {
-          id: f.followerId,
-          model: f.followerModel,
-          username: user?.username || "Unknown User",
-          profilePhoto: user?.profilePhoto || null,
-        };
-      } else if (f.followerModel === "PropertyProvider") {
-        const pp = await PropertyProvider.findById(f.followerId).select("username profilePhoto");
-        return {
-          id: f.followerId,
-          model: f.followerModel,
-          username: pp?.username || "Unknown Provider",
-          profilePhoto: pp?.profilePhoto || null,
-        };
-      }
-      return null;
-    })
-  );
-
-  const resolvedFollowers = followers.filter(Boolean);
-
-  res.status(200).json({
-    success: true,
-    message: "Followers retrieved successfully",
-    followers: resolvedFollowers.length,
-    data: resolvedFollowers,
-  });
-});
-
-/*export const getFollowingOfPropertyProvider = asyncHandler(async (req, res) => {
-  const { propertyProviderId } = req.params;
-
-  // Ensure requester is authenticated
-  if (!req.user && !req.propertyProvider) {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  const provider = await PropertyProvider.findById(propertyProviderId);
-  if (!provider) {
-    return res.status(404).json({ message: "Property provider not found." });
-  }
-
-  // Following are stored as { followingId, followingModel }
-  const following = await Promise.all(
-    provider.following.map(async (f) => {
-      if (f.followingModel === "PropertyProvider") {
-        const pp = await PropertyProvider.findById(f.followingId).select("username profilePhoto");
-        return {
-          id: f.followingId,
-          model: f.followingModel,
-          username: pp?.username || "Unknown Provider",
-          profilePhoto: pp?.profilePhoto || null,
-        };
-      }
-      // If later you allow following Users, you can add a branch here
-      return null;
-    })
-  );
-
-  res.status(200).json({
-    success: true,
-    message: "Following retrieved successfully",
-    data: following.filter(Boolean),
-  });
-});
-
-export const getFollowingOfUser = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-
-  const user = await User.findById(userId);
-  if (!user) {
-    return res.status(404).json({ message: "User not found." });
-  }
-
-  // Resolve following list
-  const following = await Promise.all(
-    user.following.map(async (f) => {
-      if (f.followingModel === "PropertyProvider") {
-        const pp = await PropertyProvider.findById(f.followingId).select("username profilePhoto");
-        return {
-          id: f.followingId,
-          model: f.followingModel,
-          username: pp?.username || "Unknown Provider",
-          profilePhoto: pp?.profilePhoto || null,
-        };
-      }
-      return null;
-    })
-  );
-
-  res.status(200).json({
-    success: true,
-    message: "Following retrieved successfully",
-    data: following.filter(Boolean),
-  });
-});*/
-
-
-
-
-export const getFollowing = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  // Debug log: check what ID is coming in
-  console.log("Route param id:", id);
-
-  // Ensure requester is authenticated
-  if (!req.user && !req.propertyProvider) {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  // Try to find actor in User collection first
-  let actor = await User.findById(id);
-  let actorType = "User";
-
-  if (!actor) {
-    // If not a User, try PropertyProvider
-    actor = await PropertyProvider.findById(id);
-    actorType = "PropertyProvider";
-    if (!actor) {
-      return res.status(404).json({ message: `No User or PropertyProvider found with id ${id}` });
-    }
-  }
-
-  const followingList = actor.following || [];
-
-  const following = await Promise.all(
-    followingList.map(async (f) => {
-      if (f.followingModel === "PropertyProvider") {
-        const pp = await PropertyProvider.findById(f.followingId).select("username profilePhoto");
-        return {
-          id: f.followingId,
-          model: f.followingModel,
-          username: pp?.username || "Unknown Provider",
-          profilePhoto: pp?.profilePhoto || null,
-        };
-      }
-      return null;
-    })
-  );
-
-  const resolvedFollowing = following.filter(Boolean);
-
-  res.status(200).json({
-    success: true,
-    message: `${actorType} following retrieved successfully`,
-    following: resolvedFollowing.length,
-    data: resolvedFollowing,
-  });
-});
-
-
-
-
-
-/*async function fixFollowerModels() {
-  const providers = await PropertyProvider.find({});
-  for (const provider of providers) {
-    let changed = false;
-
-    for (const follower of provider.followers) {
-      // If marked as User but actually exists in PropertyProvider
-      if (follower.followerModel === "User") {
-        const isPP = await PropertyProvider.findById(follower.followerId);
-        if (isPP) {
-          follower.followerModel = "PropertyProvider";
-          changed = true;
-        }
-      }
-    }
-
-    if (changed) {
-      await provider.save();
-      console.log(`Fixed followers for provider ${provider._id}`);
-    }
-  }
-}
-
-fixFollowerModels();*/

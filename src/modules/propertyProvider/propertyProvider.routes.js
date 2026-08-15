@@ -1,7 +1,6 @@
 import {Router} from 'express';
 import {createPropertyProviderAccount, verifyEmailOTP, authenticatePropertyProvider, deletePropertyProviderAccount, getAuthenticatedPropertyProvider,
-     logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword,  toggleFollowPropertyProvider, getProfileViewAnalytics, getAccountsReached, getFollowersOfPropertyProvider,
-     getFollowing
+     logoutPropertyProvider, deletePropertyProviderProfilePhoto, updatePropertyProviderAccount,resetPassword, forgotPassword,  toggleFollow, getFollowers, getFollowing, getProfileViewAnalytics, getAccountsReached,
       } from './propertyProvider.controller.js';
 import upload from '../../lib/upload.js';
 import propertyProviderMiddleware from '../../app/middleware/propertyProvider.middleware.js';
@@ -19,13 +18,12 @@ router.put('/propertyProviders/:propertyProviderId', propertyProviderMiddleware,
 router.post('/reset-password', resetPassword);
 router.post('/forgot-password', forgotPassword);
 router.post("/logout", logoutPropertyProvider);
-router.post("/follow-property-providers/:propertyProviderId", dualAuthMiddleware, toggleFollowPropertyProvider);
+router.post("/follow/:id", dualAuthMiddleware, toggleFollow);
+router.get('/get-followers/:id', dualAuthMiddleware, getFollowers);
+router.get('/get-following/:id', dualAuthMiddleware, getFollowing);
 router.get("/analytics/:propertyProviderId", propertyProviderMiddleware, getProfileViewAnalytics);
 router.get("/accounts-reached/:propertyProviderId", propertyProviderMiddleware, getAccountsReached);
-router.get("/followers/:propertyProviderId", dualAuthMiddleware, getFollowersOfPropertyProvider);
-//router.get("/users/:userId", dualAuthMiddleware, getFollowingOfUser);
-//router.get("/following/:propertyProviderId", dualAuthMiddleware, getFollowingOfPropertyProvider);
-router.get("/following/:id",dualAuthMiddleware, getFollowing);
+
 
 
 export const propertyProviderRouter = router;
