@@ -23,6 +23,7 @@ import { listingCommentRouter } from '../modules/listingComment/listingComment.r
 import {listingCommentLikeRouter} from '../modules/listingCommentLike/listingCommentLike.routes.js';
 import {listingCommentReplyRouter} from '../modules/listingcommentReply/listingCommentReply.routes.js';
 import {listingCommentReplyLikeRouter} from '../modules/listingCommentReplyLike/listingCommentReplyLike.routes.js';
+import {searchRouter} from '../modules/search/search.routes.js'
 import {Server} from 'socket.io';
 
 
@@ -70,6 +71,7 @@ app.use('/api/listingComment', listingCommentRouter);
 app.use('/api/listingCommentLike', listingCommentLikeRouter);
 app.use('/api/listingCommentReply', listingCommentReplyRouter);
 app.use('/api/listingCommentReplyLike', listingCommentReplyLikeRouter);
+app.use('/api/search', searchRouter);
 app.use('/api/messages', messageRouter);
 app.use('/api/notifications', notificationsRouter);
 

@@ -611,57 +611,6 @@ export const reportListing = asyncHandler(async (req, res) => {
   });
 });
 
-export const searchListings = asyncHandler(async (req, res) => {
-  const { location, minPrice, maxPrice, type, description, amenities, page = 1, limit = 10 } = req.query;
-
-  // Base query
-  const query = { status: "available" };
-
-  // Price filter
-  if (minPrice || maxPrice) {
-    query.price = {};
-    if (minPrice) query.price.$gte = parseFloat(minPrice);
-    if (maxPrice) query.price.$lte = parseFloat(maxPrice);
-  }
-
-  // Type filter
-  if (type) {
-    query.type = type;
-  }
-
-  // ✅ Full sentence search using $text
-  // If user provides description OR amenities OR location, treat it as a full-text search
-  if (description || amenities || location) {
-    const searchSentence = [description, amenities, location].filter(Boolean).join(" ");
-    query.$text = { $search: searchSentence };
-  }
-
-  // Pagination setup
-  const pageNumber = parseInt(page, 10);
-  const pageSize = parseInt(limit, 10);
-  const skip = (pageNumber - 1) * pageSize;
-
-  // Execute query with relevance scoring
-  const listings = await Listing.find(
-    query,
-    { score: { $meta: "textScore" } } // include relevance score
-  )
-    .sort({ score: { $meta: "textScore" }, createdAt: -1 }) // sort by relevance first, then newest
-    .skip(skip)
-    .limit(pageSize);
-
-  const totalCount = await Listing.countDocuments(query);
-
-  res.json({
-    success: true,
-    count: listings.length,
-    totalCount,
-    currentPage: pageNumber,
-    totalPages: Math.ceil(totalCount / pageSize),
-    listings,
-  });
-});
-
 export const getTotalListingsByProvider = asyncHandler(async (req, res) => {
   const { propertyProviderId } = req.params;
   const requester = req.propertyProvider;
