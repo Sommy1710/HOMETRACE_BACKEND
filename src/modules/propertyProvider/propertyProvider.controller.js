@@ -539,7 +539,7 @@ export const toggleFollow = asyncHandler(async (req, res) => {
 
 
 
-const resolveAccount = async (id) => {
+/*const resolveAccount = async (id) => {
   let account = await User.findById(id)
     .select("_id username firstname lastname profilePhoto bio role followersCount followingCount")
     .lean();
@@ -734,6 +734,222 @@ export const getFollowing = asyncHandler(async (req, res) => {
       },
     },
   });
+});*/
+
+
+
+const findAccountById = async (id) => {
+
+    // Check User first
+    const user = await User.findOne({
+        _id: id,
+        isDeleted: false
+    })
+        .select("_id username profilePhoto")
+        .lean();
+
+    if (user) {
+        return {
+            account: user,
+            model: "User"
+        };
+    }
+
+    // Check Property Provider
+    const propertyProvider = await PropertyProvider.findOne({
+        _id: id,
+        isDeleted: false,
+        isBanned: false
+    })
+        .select("_id username firstname lastname profilePhoto bio isVerified")
+        .lean();
+
+    if (propertyProvider) {
+        return {
+            account: propertyProvider,
+            model: "PropertyProvider"
+        };
+    }
+
+    return null;
+};
+
+export const getFollowers = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    if (!id) {
+        throw new ValidationError("Account ID is required.");
+    }
+
+    // Automatically determine whether the account is a User
+    // or PropertyProvider
+    const accountData = await findAccountById(id);
+
+    if (!accountData) {
+        throw new NotFoundError("Account not found.");
+    }
+
+    const { account, model } = accountData;
+
+
+    // Find everyone following this account
+    const follows = await Follow.find({
+        following: id,
+        followingModel: model
+    })
+        .sort({ createdAt: -1 })
+        .lean();
+
+
+    // Get follower profiles
+    const followers = await Promise.all(
+
+        follows.map(async (follow) => {
+
+            const FollowerModel =
+                follow.followerModel === "User"
+                    ? User
+                    : PropertyProvider;
+
+
+            const follower = await FollowerModel.findOne({
+                _id: follow.follower,
+                isDeleted: false,
+
+                ...(follow.followerModel === "PropertyProvider" && {
+                    isBanned: false
+                })
+
+            })
+                .select(
+                    "_id username firstname lastname profilePhoto bio isVerified followersCount followingCount"
+                )
+                .lean();
+
+
+            return follower;
+        })
+    );
+
+
+    // Remove accounts that no longer exist
+    const validFollowers = followers.filter(Boolean);
+
+
+    return res.status(200).json({
+
+        success: true,
+
+        message: "Followers fetched successfully.",
+
+        data: {
+
+            account: {
+                id: account._id,
+                username: account.username,
+                profilePhoto: account.profilePhoto,
+
+                ...(model === "PropertyProvider" && {
+                    firstname: account.firstname,
+                    lastname: account.lastname
+                })
+            },
+
+            total: validFollowers.length,
+
+            followers: validFollowers
+        }
+    });
+});
+
+export const getFollowing = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    if (!id) {
+        throw new ValidationError("Account ID is required.");
+    }
+
+    // Automatically determine whether the account is a User
+    // or PropertyProvider
+    const accountData = await findAccountById(id);
+
+    if (!accountData) {
+        throw new NotFoundError("Account not found.");
+    }
+
+    const { account, model } = accountData;
+
+
+    // Find everyone this account follows
+    const follows = await Follow.find({
+        follower: id,
+        followerModel: model
+    })
+        .sort({ createdAt: -1 })
+        .lean();
+
+
+    // Get following profiles
+    const following = await Promise.all(
+
+        follows.map(async (follow) => {
+
+            const FollowingModel =
+                follow.followingModel === "User"
+                    ? User
+                    : PropertyProvider;
+
+
+            const followingAccount = await FollowingModel.findOne({
+                _id: follow.following,
+                isDeleted: false,
+
+                ...(follow.followingModel === "PropertyProvider" && {
+                    isBanned: false
+                })
+
+            })
+                .select(
+                    "_id username firstname lastname profilePhoto bio isVerified followersCount followingCount"
+                )
+                .lean();
+
+
+            return followingAccount;
+        })
+    );
+
+
+    // Remove accounts that no longer exist
+    const validFollowing = following.filter(Boolean);
+
+
+    return res.status(200).json({
+
+        success: true,
+
+        message: "Following fetched successfully.",
+
+        data: {
+
+            account: {
+                id: account._id,
+                username: account.username,
+                profilePhoto: account.profilePhoto,
+
+                ...(model === "PropertyProvider" && {
+                    firstname: account.firstname,
+                    lastname: account.lastname
+                })
+            },
+
+            total: validFollowing.length,
+
+            following: validFollowing
+        }
+    });
 });
 
 export const logProfileView = asyncHandler(async (req, res) => {
