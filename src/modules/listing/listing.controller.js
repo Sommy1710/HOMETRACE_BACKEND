@@ -13,6 +13,7 @@ import { ReportListing } from './listing.schema.js';
 import { ReportListingRequest } from './create-listing.request.js';
 import axios from "axios"; // for geocoding API calls
 
+
 export const createNewListing = asyncHandler(async (req, res) => {
   if (!req.propertyProvider || !req.propertyProvider.id) {
     throw new UnauthenticatedError("propertyProvider not authenticated");
@@ -435,7 +436,61 @@ export const toggleLikeListing = asyncHandler(async (req, res) => {
       likeCount: listing.likeCount,
     });
   }
-})
+
+  //like
+  await ListingLike.create({
+    listing: listing._id,
+    user: accountId,
+    userModel: accountModel,
+  });
+
+  listing.likeCount += 1;
+  await listing.save();
+
+  //create notification
+  // dont notify the property provider if they like their own listing
+
+  if (
+    listing.author.toString() !== accountId.toString()
+  ) {
+    //get the person who liked the listing
+    let liker;
+
+    if(accountModel === "User") {
+      liker = await User.findById(accountId)
+      .select("username");
+    } else {
+      liker = await PropertyProvider.findById(accountId)
+      .select("username firstname lastname");
+    }
+
+    let likerName = "Someone";
+    if (accountModel === "User") {
+      likerName = liker?.username || "Someone";
+    } else {
+      likerName = `${liker?.firstname || ""} ${liker?.lastname || ""}`.trim() || liker?.username || "Someone";
+    }
+
+    await createNotification({
+      //listing owner
+      recipient: listing.author,
+      //listing onwer is always a propertyprovider
+      recipientModel: "PropertyProvider",
+      sender: accountId,
+      senderModel: accountModel,
+      type: "LISTING_LIKED",
+      entityId: listing._id,
+      entityModel: "Listing",
+      message: `${likerName} liked your listing.`
+    });
+  }
+  return res.status(200).json({
+    success: true,
+    message: "Listing liked successfully",
+    liked: true,
+    likeCount: listing.likeCount,
+  });
+});
 
 export const incrementListingViews = asyncHandler(async (req, res) => {
   const { id } = req.params;

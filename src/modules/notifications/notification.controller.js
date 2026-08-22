@@ -1,38 +1,86 @@
 import { Notification } from "./notification.schema.js";
-import {asyncHandler} from '../../lib/util.js';
+import { asyncHandler } from "../../lib/util.js";
+import { NotFoundError, UnauthorizedError } from "../../lib/error-definitions.js";
 
 
-export const getMyNotifications = async (req, res) => {
-  try {
+export const getMyNotifications = asyncHandler(async (req, res) => {
+
     const user = req.user;
 
     if (!user || !user._id || !user.role) {
-      return res.status(401).json({ message: "Unauthorized" });
+        throw new UnauthorizedError("Unauthorized.");
     }
 
+
+    const recipientModel =
+        user.role === "user"
+            ? "User"
+            : "PropertyProvider";
+
+
     const notifications = await Notification.find({
-      recipient: user._id,
-      recipientModel: user.role === "user" ? "User" : "PropertyProvider"
+        recipient: user._id,
+        recipientModel
     })
-      .sort({ createdAt: -1 })
-      .lean();
+        .sort({ createdAt: -1 })
+        .lean();
 
-    res.status(200).json({ notifications });
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
 
+    return res.status(200).json({
+        success: true,
+        message: "Notifications fetched successfully.",
+        total: notifications.length,
+        notifications
+    });
+});
 
 
 
 export const markNotificationAsRead = asyncHandler(async (req, res) => {
-  const { id } = req.params;
 
-  await Notification.findByIdAndUpdate(id, {
-    isRead: true
-  });
+    const { id } = req.params;
 
-  res.json({ success: true });
+    const user = req.user;
+
+    if (!user || !user._id || !user.role) {
+        throw new UnauthorizedError("Unauthorized.");
+    }
+
+
+    const recipientModel =
+        user.role === "user"
+            ? "User"
+            : "PropertyProvider";
+
+
+    const notification = await Notification.findOneAndUpdate(
+        {
+            _id: id,
+
+            // Make sure this notification belongs
+            // to the authenticated user
+            recipient: user._id,
+            recipientModel
+        },
+        {
+            isRead: true
+        },
+        {
+            new: true
+        }
+    );
+
+
+    if (!notification) {
+        throw new NotFoundError(
+            "Notification not found."
+        );
+    }
+
+
+    return res.status(200).json({
+        success: true,
+        message: "Notification marked as read.",
+        notification
+    });
 });

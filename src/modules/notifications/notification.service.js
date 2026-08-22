@@ -1,27 +1,5 @@
 import {Notification} from "./notification.schema.js";
-import {io} from "../../bootstrap/server.js";
-
-/*export const createNotification = async ({
-    recipient,
-    recipientModel,
-    sender,
-    senderModel,
-    type,
-    entityId,
-    entityModel,
-    message
-}) => {
-    return Notification.create({
-        recipient,
-        recipientModel,
-        sender,
-        senderModel,
-        type,
-        entityId,
-        entityModel,
-        message
-    });
-};*/
+import {sendNotification} from "../../bootstrap/server.js";
 
 export const createNotification = async ({
   recipient,
@@ -46,8 +24,8 @@ export const createNotification = async ({
     message
   });
 
-  // emit real-time notification
-  io.to(recipient.toString()).emit("newNotification", {
+  // send real-time notification
+  sendNotification(recipient, {
     _id: notification._id,
     type: notification.type,
     message: notification.message,

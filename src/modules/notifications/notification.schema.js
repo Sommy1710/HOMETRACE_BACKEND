@@ -37,7 +37,7 @@ const NotificationSchema = new Schema(
 
     entityModel: {
       type: String,
-      enum: ["Listing", "PropertyProvider"],
+      enum: ["Listing", "PropertyProvider", "User"],
       required: true
     },
 

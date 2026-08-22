@@ -530,6 +530,47 @@ export const toggleFollow = asyncHandler(async (req, res) => {
               ),
     ]);
 
+    //create notification
+    //get follower information for the notification message
+    let followerAccount;
+
+    if(followerModel === "User") {
+      followerAccount = await User.findById(
+        followerId
+      ).select("username");
+    } else {
+      followerAccount = await PropertyProvider.findById(
+        followerId
+      ).select("username firstname lastname");
+    }
+
+    const followerName = followerModel === "PropertyProvider"
+    ? `${followerAccount?.firstname || ""} ${followerAccount?.lastname || ""}`.trim()
+    : followerAccount?.username;
+
+    await createNotification({
+
+        // Person receiving notification
+        recipient: followingAccount._id,
+
+        recipientModel: followingModel,
+
+        // Person who followed
+        sender: followerId,
+
+        senderModel: followerModel,
+
+        type: "NEW_FOLLOWER",
+
+        // The entity that caused the notification
+        entityId: followerId,
+
+        entityModel: followerModel,
+
+        message: `${followerName || "Someone"} started following you.`
+
+    });
+
     return res.status(200).json({
         success: true,
         message: "Account followed successfully.",

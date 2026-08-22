@@ -25,7 +25,8 @@
     "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "tream": "^0.1.4"
+    "tream": "^0.1.4",
+    "ws": "^8.21.3"
   },
   "name": "hometrace_backend_node",
   "version": "1.0.0",
