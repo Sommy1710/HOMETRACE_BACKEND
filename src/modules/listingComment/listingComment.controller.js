@@ -10,6 +10,7 @@ import {
     NotFoundError,
     UnauthenticatedError,
 } from "../../lib/error-definitions.js";
+import {createNotification} from "../notifications/notification.service.js";
 
 export const createListingComment = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -99,6 +100,24 @@ if (req.user?.role === "propertyProvider") {
             },
         }
     );
+
+    //create notification
+    //dont notify the property provider if they comment on their own listing
+    if (
+        listing.author.toString() !== authorId.toString()
+    ) {
+        await createNotification({
+            //owner of the listing
+            recipient: listing.author,
+            recipientModel: "PropertyProvider",
+            sender: authorId,
+            senderModel: authorModel,
+            type: "COMMENTED_ON_LISTING",
+            entityId: listing._id,
+            entityModel: "Listing",
+            message: `${username} commented on your listing.`
+        })
+    }
 
     return res.status(201).json({
         success: true,

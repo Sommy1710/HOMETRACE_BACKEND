@@ -26,7 +26,7 @@ const NotificationSchema = new Schema(
 
     type: {
       type: String,
-      enum: ["LISTING_LIKED", "NEW_FOLLOWER"],
+      enum: ["LISTING_LIKED", "NEW_FOLLOWER", "COMMENTED_ON_LISTING"],
       required: true
     },
 
