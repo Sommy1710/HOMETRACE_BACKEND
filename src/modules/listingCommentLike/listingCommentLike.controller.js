@@ -5,6 +5,7 @@ import {
     NotFoundError,
     UnauthenticatedError,
 } from "../../lib/error-definitions.js";
+import { createNotification } from "../notifications/notification.service.js";
 
 export const toggleLikeListingComment = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -70,6 +71,28 @@ export const toggleLikeListingComment = asyncHandler(async (req, res) => {
     comment.commentLikeCount += 1;
 
     await comment.save();
+
+    //send notification
+    //dont notify someone when they like their own comment
+
+    const isOwnComment = comment.author.toString() && comment.authorModel === accountModel;
+
+    if (!isOwnComment) {
+        await createNotification({
+            recipient: comment.author,
+            recipientModel: comment.authorModel,
+
+            sender: accountId,
+            senderModel: accountModel,
+
+            type: "COMMENT_LIKED",
+
+            entityId: comment._id,
+            entityModel: "ListingComment",
+
+            message: "Someone liked your comment."
+        });
+    }
 
     return res.status(200).json({
         success: true,
