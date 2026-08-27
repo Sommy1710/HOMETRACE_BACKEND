@@ -10,6 +10,7 @@ import {
     NotFoundError,
     UnauthenticatedError,
 } from "../../lib/error-definitions.js";
+import { createNotification } from "../notifications/notification.service.js";
 
 export const createListingCommentReply = asyncHandler(async (req, res) => {
 
@@ -108,6 +109,26 @@ export const createListingCommentReply = asyncHandler(async (req, res) => {
             },
         }
     );
+
+    //dont notify someone when they reply to their own comment 
+    const isOwnComment = comment.author.toString() == authorId.toString() && comment.authorModel === authorModel;
+
+    if (!isOwnComment) {
+        await createNotification({
+            //the original comment author recieves the notification
+            recipient: comment.author,
+
+            //user or propertyprovider
+            recipientModel: comment.authorModel,
+
+            senderModel: authorModel,
+
+            type: "COMMENT_REPLIED",
+            entityId: comment._id,
+            entityModel: "ListingComment",
+            message: `${username} replied to your comment.`,
+        });
+    }
 
     return res.status(201).json({
 

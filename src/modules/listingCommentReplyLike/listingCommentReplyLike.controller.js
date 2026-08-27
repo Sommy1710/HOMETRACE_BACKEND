@@ -5,6 +5,8 @@ import {
     NotFoundError,
     UnauthenticatedError,
 } from "../../lib/error-definitions.js";
+import { createNotification } from "../notifications/notification.service.js";
+import { User } from "../auth/user.schema.js";
 
 export const toggleLikeListingCommentReply = asyncHandler(async (req, res) => {
     const { id } = req.params;
@@ -16,6 +18,7 @@ export const toggleLikeListingCommentReply = asyncHandler(async (req, res) => {
 
     let accountId;
     let accountModel;
+    let username;
 
     if (req.user?.role === "propertyProvider") {
         accountId = req.user.id;
@@ -89,6 +92,34 @@ export const toggleLikeListingCommentReply = asyncHandler(async (req, res) => {
 
     const updatedReply = await ListingCommentReply.findById(id)
         .select("replyLikeCount");
+    
+    //dont notify someone when they like their own reply
+    const isOwnReply = reply.author.toString() === accountId.toString() && reply.authorModel === accountModel;
+
+    if (!isOwnReply) {
+        //get the name of the person who liked
+        if (accountModel === "propertyProvider") {
+            const provider = await PropertyProvider.findById(accountId)
+            .select("username");
+            username = provider?.username || "Someone";
+        } else {
+            const user = 
+            await User.findById(accountId)
+            .select("username");
+            username = user?.username || "Someone";
+        }
+
+        await createNotification({
+            recipient: reply.author,
+            recipientModel: reply.authorModel,
+            sender: accountId,
+            senderModel: accountModel,
+            type: "REPLY_LIKED",
+            entityId: reply._id,
+            entityModel: "ListingComment",
+            message: `${username} liked your reply.`,
+        });
+    }
 
     return res.status(200).json({
         success: true,
