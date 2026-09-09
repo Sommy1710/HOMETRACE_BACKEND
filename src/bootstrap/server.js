@@ -193,7 +193,7 @@ app.get('/health', (req, res) => {
     });
 })
 
-//app.use('/api/email', emailRoutes);
+
 app.use('/api/auth', authRouter);
 app.use('/api/propertyProvider', propertyProviderRouter);
 app.use('/api/admin', adminRouter);
