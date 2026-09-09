@@ -21,7 +21,7 @@ import { listingRouter } from './../modules/listing/listing.routes.js';
 import {favouritesRouter} from '../modules/favourites/favourites.routes.js';
 import { listingCommentRouter } from '../modules/listingComment/listingComment.routes.js';
 import {listingCommentLikeRouter} from '../modules/listingCommentLike/listingCommentLike.routes.js';
-import {listingCommentReplyRouter} from '../modules/listingcommentReply/listingCommentReply.routes.js';
+import {listingCommentReplyRouter} from '../modules/listingCommentReply/listingCommentReply.routes.js';
 import {listingCommentReplyLikeRouter} from '../modules/listingCommentReplyLike/listingCommentReplyLike.routes.js';
 import {searchRouter} from '../modules/search/search.routes.js';
 import {WebSocketServer, WebSocket} from "ws";
