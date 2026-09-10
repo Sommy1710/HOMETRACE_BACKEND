@@ -14,6 +14,46 @@ import { ReportListingRequest } from './create-listing.request.js';
 import axios from "axios"; // for geocoding API calls
 
 
+//helper function for new-listing notifications
+import { Follow } from '../propertyProvider/propertyProvider.schema.js';
+
+
+export const notifyFollowersOfNewListing = async ({
+    propertyProviderId,
+    propertyProviderUsername,
+    listingId
+}) => {
+
+    // Find everyone following this PropertyProvider
+    const followers = await Follow.find({
+        following: propertyProviderId,
+        followingModel: "PropertyProvider"
+    }).lean();
+
+    if (followers.length === 0) {
+        return;
+    }
+
+    // Create notifications for all followers
+    await Promise.all(
+        followers.map((follow) =>
+            createNotification({
+                recipient: follow.follower,
+                recipientModel: follow.followerModel,
+
+                sender: propertyProviderId,
+                senderModel: "PropertyProvider",
+
+                type: "NEW_LISTING",
+
+                entityId: listingId,
+                entityModel: "Listing",
+
+                message: `${propertyProviderUsername} just created a new listing.`
+            })
+        )
+    );
+};
 export const createNewListing = asyncHandler(async (req, res) => {
   if (!req.propertyProvider || !req.propertyProvider.id) {
     throw new UnauthenticatedError("propertyProvider not authenticated");
@@ -113,8 +153,15 @@ export const createNewListing = asyncHandler(async (req, res) => {
   };
 
   //Save listing
-  await listingService.createListing(listingPayload);
+  const listing = await listingService.createListing(listingPayload);
+  //await listingService.createListing(listingPayload);
 
+  //notify the providers followers
+  await notifyFollowersOfNewListing({
+    propertyProviderId: req.propertyProvider.id,
+    propertyProviderUsername: req.propertyProvider.username,
+    listingId: listing._id
+  })
   res.status(201).json({
     success: true,
     message: "New listing created successfully",
