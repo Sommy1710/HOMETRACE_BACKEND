@@ -1,4 +1,4 @@
-import { ListingCommentReply } from "../listingcommentReply/listingCommentReply.schema.js";
+import { ListingCommentReply } from "../listingCommentReply/listingCommentReply.schema.js";
 import { ListingCommentReplyLike } from "./listingCommentReplyLike.schema.js";
 import { asyncHandler } from "../../lib/util.js";
 import {
