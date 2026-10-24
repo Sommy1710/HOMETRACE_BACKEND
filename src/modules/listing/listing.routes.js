@@ -1,6 +1,5 @@
 import {Router} from 'express';
-import { createNewListing, deleteSingleListing, fetchAllListings, fetchListing, fetchPublicListings, toggleLikeListing, updateListing, updateListingStatus,
-    incrementListingViews, fetchPopularListings, fetchListingsBypropertyProvider, duplicateListing, fetchUnavailableListings,
+import { createNewListing, deleteSingleListing, fetchAllListings, fetchListing, fetchPublicListings, toggleLikeListing, updateListing, updateListingStatus, fetchPopularListings, fetchListingsBypropertyProvider, duplicateListing, fetchUnavailableListings,
     reportListing, getTotalListingsByProvider, getTopThreeMostViewedListingsForMonth, getTopTrendingListings, getHotLocations, getPopularPropertyTypes
  } from './listing.controller.js';
 import {uploadListingMedia} from '../../lib/upload.js';
@@ -10,14 +9,13 @@ const router = Router();
 
 router.post('/create-listing', propertyProviderMiddleware, uploadListingMedia, createNewListing );
 router.get('/fetch-all-listings', propertyProviderMiddleware, fetchAllListings);
-router.get('/fetch-listing/:id', propertyProviderMiddleware, fetchListing);
+router.get('/fetch-listing/:id', dualAuthMiddleware, fetchListing);
 router.put('/update-listing/:id', propertyProviderMiddleware, updateListing)
 router.delete('/delete-listing/:id', propertyProviderMiddleware, deleteSingleListing);
 router.get('/fetch-public-listings', fetchPublicListings);
 router.post('/like-listing/:id', dualAuthMiddleware, toggleLikeListing);
 router.put('/update-listing-status/:id', propertyProviderMiddleware, updateListingStatus );
-router.patch('/increment-listing-views/:id', incrementListingViews);
-router.get('/fetch-popular-listing', fetchPopularListings)
+router.get('/fetch-popular-listing', fetchPopularListings);
 router.get('/property-provider/:propertyProviderId', fetchListingsBypropertyProvider);
 router.post('/duplicate/:id', propertyProviderMiddleware, duplicateListing);
 router.get('/unavailable-listings', propertyProviderMiddleware, fetchUnavailableListings);

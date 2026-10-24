@@ -24,6 +24,8 @@ import {listingCommentLikeRouter} from '../modules/listingCommentLike/listingCom
 import {listingCommentReplyRouter} from '../modules/listingCommentReply/listingCommentReply.routes.js';
 import {listingCommentReplyLikeRouter} from '../modules/listingCommentReplyLike/listingCommentReplyLike.routes.js';
 import {searchRouter} from '../modules/search/search.routes.js';
+import { incrementListingViewsRouter } from '../modules/listingView/listingView.routes.js';
+import {ninVerificationRouter} from "../modules/ninVerification/ninVerification.routes.js";
 import {WebSocketServer, WebSocket} from "ws";
 import jwt from 'jsonwebtoken';
 
@@ -206,6 +208,9 @@ app.use('/api/listingCommentReplyLike', listingCommentReplyLikeRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/messages', messageRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/listingView', incrementListingViewsRouter);
+
+app.use("/api/nin-verification", ninVerificationRouter);
 
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

@@ -7,6 +7,7 @@ import {
 } from "../../lib/error-definitions.js";
 import { createNotification } from "../notifications/notification.service.js";
 import { User } from "../auth/user.schema.js";
+import { PropertyProvider } from "../propertyProvider/propertyProvider.schema.js";
 
 export const toggleLikeListingCommentReply = asyncHandler(async (req, res) => {
     const { id } = req.params;

@@ -4,6 +4,7 @@ import {Validator} from '../../lib/validator.js';
 import { createListingRequest,updateListingRequest } from './create-listing.request.js';
 import {ValidationError} from '../../lib/error-definitions.js';
 import { ListingLike, Listing } from './listing.schema.js';
+import {recordListingView} from "../listingView/listingViewService.js";
 import {v2 as cloudinary} from 'cloudinary';
 import { NotFoundError, UnauthenticatedError, UnauthorizedError } from '../../lib/error-definitions.js';
 import { createNotification } from "../notifications/notification.service.js";
@@ -224,8 +225,20 @@ export const fetchListing = asyncHandler(async(req, res) =>
 {
     const {id} = req.params;
     const listing = await listingService.getListing(id);
+
+    if (!listing) {
+      throw new NotFoundError("Listing not found");
+    }
+
+    //record view without counting the same viewer twice
+    const viewResult = await recordListingView(req, id);
+
+    //return the updated count if the view was recorded or already existed.
+    if (viewResult?.views !== undefined) {
+      listing.views = viewResult.views;
+    }
     
-    return res.json({
+    return res.status(200).json({
         success: true,
         message: 'listing retrieved',
         data: {
@@ -459,7 +472,7 @@ export const toggleLikeListing = asyncHandler(async (req, res) => {
   const listing = await Listing.findById(id);
 
   if (!listing) {
-    throw new NotfoundError("listing not found");
+    throw new NotFoundError("listing not found");
   }
 
   //check if already liked
@@ -539,26 +552,6 @@ export const toggleLikeListing = asyncHandler(async (req, res) => {
   });
 });
 
-export const incrementListingViews = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const listing = await Listing.findByIdAndUpdate(
-    id,
-    { $inc: { views: 1 } },
-    { new: true }
-  );
-
-  if (!listing) {
-    throw new NotFoundError("Listing not found");
-  }
-
-  res.json({
-    success: true,
-    data: {
-      views: listing.views
-    }
-  });
-});
 
 //for homepage sections: "trending", "most viewed", "hot right now"
 export const fetchPopularListings = asyncHandler(async (req, res) => {

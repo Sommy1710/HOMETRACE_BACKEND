@@ -55,7 +55,7 @@ const PropertyProviderSchema = new Schema({
     },
     emailVerificationCode: String,
     emailCodeExpiry: Date,
-
+    
     passwordResetCode: String,
     passwordResetExpiry: Date,
 
