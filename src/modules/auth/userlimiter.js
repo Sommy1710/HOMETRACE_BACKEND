@@ -1,20 +1,26 @@
-import  rateLimit from 'express-rate-limit';
 
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
-export const userlimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
-  standardHeaders: true, // Return rate limit info in the RateLimit-* headers
-  legacyHeaders: false, // Disable the X-RateLimit-* headers
-
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => {
+    const ip = ipKeyGenerator(req.ip);
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    return email ? `${ip}:${email}` : ip;
+  },
   handler: (req, res, next, options) => {
-    const resetTime = req.rateLimit.resetTime?.getTime() || Date.now() + options.windowMs;
-    const retryAfterMs = resetTime - Date.now();
-    const retryAfterMinutes = Math.ceil(retryAfterMs / 60000);
-
+    const resetTime = req.rateLimit?.resetTime?.getTime() ?? Date.now() + options.windowMs;
+    const seconds = Math.max(Math.ceil((resetTime - Date.now()) / 1000), 1);
+    res.set("Retry-After", String(seconds));
     res.status(429).json({
       success: false,
-      message: `Too many login attempts. Try again in ${retryAfterMinutes} minute(s).`
+      message: `Too many login attempts. Try again in ${Math.ceil(seconds / 60)} minute(s).`,
     });
-  }
+  },
 });
+
+export const userlimiter = loginLimiter; // keeps my old imports working
